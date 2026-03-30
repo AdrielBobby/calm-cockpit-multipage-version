@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calm Cockpit v2</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4">
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <span class="date-display">{{ day }}, {{ date }}</span>
+                <span class="time-display" id="current-time">00:00 AM</span>
+            </div>
+            <div class="user-avatar">
+                <div class="user-avatar">A</div>
+            </div>
+        </header>
+
+        <!-- Row 1 -->
+        <div class="tile tile-4-col" id="tile-timetable">
+            <div class="tile-header">
+                <h2>Today's Timetable</h2>
+                <button class="btn-action" data-modal="modal-timetable">...</button>
+            </div>
+            <div class="tile-content">
+                {% if timetable %}
+                    <ul style="list-style: none; padding: 0;">
+                    {% for class in timetable %}
+                        <li style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px;">
+                            <span style="color: var(--text-muted); font-size: 0.9rem;">{{ class.time }}</span>
+                            <strong style="text-align: right;">{{ class.subject }}</strong>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted" style="color: var(--text-muted); font-size: 0.9rem;">No classes today! 🎉</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="tile tile-4-col" id="tile-attendance">
+            <div class="tile-header">
+                <h2>Attendance Snapshot</h2>
+                <button class="btn-action" data-modal="modal-attendance">...</button>
+            </div>
+            <div class="tile-content" id="attendance-snapshot-container">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                {% for item in attendance %}
+                    <div class="snapshot-item" data-subject="{{ item.subject }}" style="text-align: center; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+                        <div class="percentage-value" style="font-size: 1.2rem; font-weight: bold; color: {% if item.percentage >= 80 %}var(--accent-teal){% elif item.percentage >= 60 %}var(--accent-yellow){% else %}var(--accent-red){% endif %};">
+                            {{ item.percentage }}%
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">{{ item.subject }}</div>
+                    </div>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="tile tile-4-col" id="tile-grades">
+            <div class="tile-header">
+                <h2>Grades Snapshot</h2>
+                <button class="btn-action" data-modal="modal-grades">...</button>
+            </div>
+            <div class="tile-content">
+                {% if grades %}
+                    <div style="text-align: center; margin-bottom: 16px;">
+                        <span style="font-size: 2.5rem; font-weight: 700; color: var(--accent-purple);">{{ grades.cgpa }}</span>
+                        <div style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Current CGPA</div>
+                    </div>
+                    <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse;">
+                        <tr style="color: var(--text-muted); border-bottom: 1px solid var(--card-border);">
+                            <th style="text-align: left; padding: 4px;">Sem</th>
+                            <th style="text-align: right; padding: 4px;">SGPA</th>
+                        </tr>
+                        {% for sem in grades.history[:4] %}
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
+                            <td style="padding: 8px 4px;">Semester {{ sem.number }}</td>
+                            <td style="text-align: right; padding: 8px 4px; font-weight: 600;">{{ sem.sgpa }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="tile tile-4-col" id="tile-finance">
+            <div class="tile-header">
+                <h2>Finance Summary</h2>
+                <button class="btn-action" data-modal="modal-finance">...</button>
+            </div>
+            <div class="tile-content" id="finance-snapshot-container">
+                {% if finance %}
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-size: 1.5rem; font-weight: 700;">₹{{ finance.balance }}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem;">Net Balance</div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <div style="flex: 1; background: rgba(6, 214, 160, 0.1); border: 1px solid rgba(6, 214, 160, 0.2); padding: 8px; border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--accent-teal); text-transform: uppercase;">Income</div>
+                            <div style="font-weight: 600;">₹{{ finance.income }}</div>
+                        </div>
+                        <div style="flex: 1; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px; border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--accent-red); text-transform: uppercase;">Expense</div>
+                            <div style="font-weight: 600;">₹{{ finance.expense }}</div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="tile tile-4-col" id="tile-goals">
+            <div class="tile-header">
+                <h2>Weekly Goals</h2>
+                <button class="btn-action" data-modal="modal-goals">...</button>
+            </div>
+            <div class="tile-content" id="goals-snapshot-container">
+                {% if goals %}
+                    <ul style="list-style: none; padding: 0;">
+                    {% for goal in goals %}
+                        <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; {% if goal.completed %}color: var(--text-muted); text-decoration: line-through;{% endif %}">
+                            <div style="width: 18px; height: 18px; border: 2px solid {% if goal.completed %}var(--accent-teal){% else %}var(--card-border){% endif %}; border-radius: 4px; background: {% if goal.completed %}var(--accent-teal){% else %}transparent{% endif %}; display: flex; align-items: center; justify-content: center;">
+                                {% if goal.completed %}
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                {% endif %}
+                            </div>
+                            {{ goal.text }}
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="tile tile-4-col" id="tile-projects">
+            <div class="tile-header">
+                <h2>Projects (In Progress)</h2>
+                <button class="btn-action" data-modal="modal-projects">...</button>
+            </div>
+            <div class="tile-content" id="projects-snapshot-container">
+                {% if projects %}
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                    {% for project in projects %}
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 500;">{{ project.name }}</span>
+                            <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 12px; background: rgba(167, 139, 250, 0.1); color: var(--accent-purple); border: 1px solid rgba(167, 139, 250, 0.2);">{{ project.status }}</span>
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Row 3: Calendar (Original Compact Look preserved) -->
+        <div class="tile tile-12-col" id="tile-calendar">
+            <div class="tile-header">
+                <h2>This Month's Calendar</h2>
+                <div style="display: flex; align-items: center;">
+                    <button class="btn-icon" onclick="navMonth(-1)">‹</button>
+                    <span class="cal-month-text" id="dash-month-label">{{ date.split(' ')[0] }} {{ date.split(' ')[2] }}</span>
+                    <button class="btn-icon" onclick="navMonth(1)">›</button>
+                    <button class="btn-action" style="margin-left: 12px;" data-modal="modal-calendar">...</button>
+                </div>
+            </div>
+            <div class="tile-content" style="display: flex; align-items: stretch; justify-content: center; padding: 16px 24px;">
+                <div style="width: 100%;" class="cal-grid" id="dash-cal-grid">
+                    {% for day_name in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+                    <div class="cal-day-name">{{ day_name }}</div>
+                    {% endfor %}
+                    
+                    {% for _ in calendar.leading_empty_days %}
+                    <div class="cal-day-cell cal-day-empty" style="opacity: 0.1;"></div>
+                    {% endfor %}
+
+                    {% for i in calendar.days %}
+                    {% set date_str = '%04d-%02d-%02d' | format(calendar.year, calendar.month, i) %}
+                    <div onclick="openCalendarAtDate('{{ date_str }}')" 
+                         class="cal-day-cell {% if i == calendar.today %}cal-today{% endif %}"
+                         data-date="{{ date_str }}">
+                        <span class="cal-day-num">{{ i }}</span>
+                        <div class="cal-dots">
+                            {% if i in calendar.event_days %}
+                            <span class="cal-dot" style="background: var(--accent-purple);"></span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified Modal Container -->
+    <div class="modal-overlay" id="global-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Modal Title</h2>
+                <button class="btn-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Dynamic content injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4"></script>
+    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=4"></script>
+    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=4"></script>
+    <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=4"></script>
+    <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=4"></script>
+    <script src="{{ url_for('static', filename='js/features/grades-ese.js') }}?v=4"></script>
+    <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=4"></script>
+    <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=4"></script>
+    <script src="{{ url_for('static', filename='js/modals.js') }}?v=4"></script>
+</body>
+</html>
