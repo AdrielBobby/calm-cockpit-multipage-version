@@ -501,7 +501,10 @@ def update_calendar_event(id):
 def add_calendar_event():
     data = request.json
     db = get_db()
-    db.execute('INSERT INTO events (date, title) VALUES (?, ?)', (data.get('date'), data.get('title')))
+    db.execute(
+        'INSERT INTO events (date, title, label, status) VALUES (?, ?, ?, ?)',
+        (data.get('date'), data.get('title'), data.get('label', 'Personal'), data.get('status', 'planned'))
+    )
     db.commit()
     return jsonify({"status": "success"})
 
@@ -515,9 +518,9 @@ def delete_calendar_event(id):
 @app.route('/api/calendar/events', methods=['GET'])
 def get_calendar_events():
     db = get_db()
-    # Fetch with IDs for management
-    rows = db.execute('SELECT id, date, title FROM events ORDER BY date ASC').fetchall()
-    data = [{"id": r['id'], "date": r['date'], "title": r['title']} for r in rows]
+    # Fetch all relevant fields
+    rows = db.execute('SELECT id, date, title, label, status FROM events ORDER BY date ASC').fetchall()
+    data = [dict(r) for r in rows]
     return jsonify({"status": "success", "data": data})
 
 @app.route('/api/grades/subjects', methods=['GET'])

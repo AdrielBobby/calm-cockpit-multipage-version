@@ -70,6 +70,11 @@ function renderCompactCalendarUI(container, events) {
                                 <option value="Gym">Gym</option>
                             </select>
                         </div>
+                        <select id="ev-status" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px; font-size: 0.85rem;">
+                            <option value="planned">Planned</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="done">Done</option>
+                        </select>
                         <button onclick="addCalEvent()" style="background: var(--accent-purple); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">Add Event</button>
                     </div>
                 </div>
@@ -145,18 +150,79 @@ window.selectDay = function(dateStr, events) {
         agendaEvents.innerHTML = '<p class="cal-no-events">Nothing planned.</p>';
     } else {
         const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#03dac6', Gym: '#ffb74d', Study: '#81d4fa' };
+        const STATUS_BADGE = { planned: 'var(--text-muted)', in_progress: 'var(--accent-yellow)', done: 'var(--accent-teal)' };
+        
         agendaEvents.innerHTML = dayEvents.map(e => `
-            <div class="cal-event-item">
+            <div class="cal-event-item" id="event-item-${e.id}">
                 <span class="cal-event-dot" style="background:${LABEL_COLORS[e.label] || '#888'}"></span>
                 <div class="cal-event-info">
-                    <div style="display:flex; justify-content:space-between;">
-                        <strong>${e.title}</strong>
-                        <button onclick="deleteCalEvent(${e.id}, '${dateStr}')" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem;">✕</button>
+                    <div style="display:flex; justify-content:space-between; align-items: center;">
+                        <strong id="event-title-${e.id}">${e.title}</strong>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span style="font-size: 0.7rem; color: ${STATUS_BADGE[e.status] || 'white'}; text-transform: uppercase; font-weight: bold;">${e.status?.replace('_', ' ') || 'planned'}</span>
+                            <button onclick='startEditEvent(${JSON.stringify(e).replace(/"/g, '&quot;')}, "${dateStr}")' style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">✎</button>
+                            <button onclick="deleteCalEvent(${e.id}, '${dateStr}')" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem;">✕</button>
+                        </div>
                     </div>
-                    <span class="cal-label-badge" style="background:${LABEL_COLORS[e.label] || '#888'}22;color:${LABEL_COLORS[e.label] || '#888'}">${e.label}</span>
+                    <span class="cal-label-badge" style="background:${LABEL_COLORS[e.label] || '#888'}22;color:${LABEL_COLORS[e.label] || '#888'}">${e.label || 'Personal'}</span>
                 </div>
             </div>
         `).join('');
+    }
+};
+
+window.startEditEvent = function(event, dateStr) {
+    const item = document.getElementById(`event-item-${event.id}`);
+    const originalContent = item.innerHTML;
+    
+    item.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--accent-purple);">
+            <input type="text" id="edit-title-${event.id}" value="${event.title}" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+            <div style="display: flex; gap: 8px;">
+                <select id="edit-label-${event.id}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.8rem;">
+                    <option value="Personal" ${event.label === 'Personal' ? 'selected' : ''}>Personal</option>
+                    <option value="Exam" ${event.label === 'Exam' ? 'selected' : ''}>Exam</option>
+                    <option value="Project" ${event.label === 'Project' ? 'selected' : ''}>Project</option>
+                    <option value="Study" ${event.label === 'Study' ? 'selected' : ''}>Study</option>
+                    <option value="Gym" ${event.label === 'Gym' ? 'selected' : ''}>Gym</option>
+                </select>
+                <select id="edit-status-${event.id}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.8rem;">
+                    <option value="planned" ${event.status === 'planned' ? 'selected' : ''}>Planned</option>
+                    <option value="in_progress" ${event.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                    <option value="done" ${event.status === 'done' ? 'selected' : ''}>Done</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button onclick="cancelEditEvent(${event.id}, '${dateStr}')" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Cancel</button>
+                <button onclick="saveEditEvent(${event.id}, '${dateStr}')" style="background: var(--accent-purple); border: none; color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Save</button>
+            </div>
+        </div>
+    `;
+};
+
+window.cancelEditEvent = function(id, dateStr) {
+    // Just reload the current state to reset UI
+    window.targetCalendarDate = dateStr;
+    window.loadCalendarModal(document.getElementById('modal-body'));
+};
+
+window.saveEditEvent = async function(id, dateStr) {
+    const title = document.getElementById(`edit-title-${id}`).value;
+    const label = document.getElementById(`edit-label-${id}`).value;
+    const status = document.getElementById(`edit-status-${id}`).value;
+    
+    try {
+        const response = await fetch(`/api/calendar/event/${id}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, label, status })
+        });
+        if (response.ok) {
+            window.targetCalendarDate = dateStr;
+            window.loadCalendarModal(document.getElementById('modal-body'));
+        }
+    } catch (e) {
+        alert("Failed to update event");
     }
 };
 
@@ -164,9 +230,14 @@ window.addCalEvent = async function() {
     const title = document.getElementById('ev-title').value;
     const date = document.getElementById('ev-date').value;
     const label = document.getElementById('ev-label').value;
+    const status = document.getElementById('ev-status').value;
     if (!title || !date) return alert("Fill title and date");
     try {
-        const response = await fetch('/api/calendar/event', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ title, date, label }) });
+        const response = await fetch('/api/calendar/event', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ title, date, label, status }) 
+        });
         if (response.ok) {
             window.targetCalendarDate = date;
             window.loadCalendarModal(document.getElementById('modal-body'));
