@@ -127,7 +127,8 @@
                 {% if goals %}
                     <ul style="list-style: none; padding: 0;">
                     {% for goal in goals %}
-                        <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; {% if goal.completed %}color: var(--text-muted); text-decoration: line-through;{% endif %}">
+                        <li onclick="toggleGoalStatus({{ goal.id }}, {{ 'false' if goal.completed else 'true' }})" 
+                            style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; cursor: pointer; {% if goal.completed %}color: var(--text-muted); text-decoration: line-through;{% endif %}">
                             <div style="width: 18px; height: 18px; border: 2px solid {% if goal.completed %}var(--accent-teal){% else %}var(--card-border){% endif %}; border-radius: 4px; background: {% if goal.completed %}var(--accent-teal){% else %}transparent{% endif %}; display: flex; align-items: center; justify-content: center;">
                                 {% if goal.completed %}
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -188,8 +189,13 @@
                          data-date="{{ date_str }}">
                         <span class="cal-day-num">{{ i }}</span>
                         <div class="cal-dots">
-                            {% if i in calendar.event_days %}
-                            <span class="cal-dot" style="background: var(--accent-purple);"></span>
+                            {% if i in calendar.events_by_day %}
+                                {% for color in calendar.events_by_day[i][:3] %}
+                                <span class="cal-dot" style="background: {{ color }};"></span>
+                                {% endfor %}
+                                {% if calendar.events_by_day[i]|length > 3 %}
+                                <span style="font-size: 0.6rem; color: var(--text-muted); line-height: 1;">+</span>
+                                {% endif %}
                             {% endif %}
                         </div>
                     </div>

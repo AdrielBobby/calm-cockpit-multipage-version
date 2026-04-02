@@ -80,9 +80,9 @@ def index():
     # PRD says "Max 4-5 goal items displayed as checkboxes."
     # Filter by current week if possible, otherwise just latest goals
     goals_rows = db.execute(
-        'SELECT text, is_completed FROM weekly_goals ORDER BY id DESC LIMIT 5'
+        'SELECT id, text, is_completed FROM weekly_goals ORDER BY id DESC LIMIT 5'
     ).fetchall()
-    weekly_goals = [{"text": r['text'], "completed": bool(r['is_completed'])} for r in goals_rows]
+    weekly_goals = [{"id": r['id'], "text": r['text'], "completed": bool(r['is_completed'])} for r in goals_rows]
 
     # --- 6. Projects ---
     # PRD says "Only projects with status in_progress."
@@ -105,12 +105,26 @@ def index():
     first_day_of_month = datetime(year, month, 1)
     leading_empty_days = first_day_of_month.weekday() 
     
-    # Find event days this month
+    # Find event days this month with labels
     month_str = now.strftime("%Y-%m")
     event_rows = db.execute(
-        "SELECT DISTINCT date FROM events WHERE date LIKE ?", (month_str + '%',)
+        "SELECT date, label FROM events WHERE date LIKE ?", (month_str + '%',)
     ).fetchall()
-    event_days = [int(r['date'].split('-')[2]) for r in event_rows]
+    
+    # Map label to colors (matching calendar-modal.js)
+    label_colors = {
+        'Personal': '#bb86fc', 
+        'Exam': '#cf6679', 
+        'Project': '#ffb74d', 
+        'Study': '#81d4fa'
+    }
+    
+    events_by_day = {}
+    for r in event_rows:
+        day = int(r['date'].split('-')[2])
+        if day not in events_by_day:
+            events_by_day[day] = []
+        events_by_day[day].append(label_colors.get(r['label'], 'var(--accent-teal)'))
     
     calendar_data = {
         "today": today,
@@ -118,7 +132,7 @@ def index():
         "year": year,
         "days": range(1, last_day + 1),
         "leading_empty_days": range(leading_empty_days),
-        "event_days": event_days
+        "events_by_day": events_by_day
     }
     
     return render_template('index.html', 

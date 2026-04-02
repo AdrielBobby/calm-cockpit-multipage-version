@@ -90,7 +90,8 @@ window.refreshGoalsSnapshot = async function() {
             let html = '<ul style="list-style: none; padding: 0;">';
             goals.forEach(goal => {
                 html += `
-                    <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; ${goal.completed ? 'color: var(--text-muted); text-decoration: line-through;' : ''}">
+                    <li onclick="toggleGoalStatus(${goal.id}, ${!goal.completed})" 
+                        style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; cursor: pointer; ${goal.completed ? 'color: var(--text-muted); text-decoration: line-through;' : ''}">
                         <div style="width: 18px; height: 18px; border: 2px solid ${goal.completed ? 'var(--accent-teal)' : 'var(--card-border)'}; border-radius: 4px; background: ${goal.completed ? 'var(--accent-teal)' : 'transparent'}; display: flex; align-items: center; justify-content: center;">
                             ${goal.completed ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
                         </div>

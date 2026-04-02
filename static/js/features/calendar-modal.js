@@ -67,7 +67,6 @@ function renderCompactCalendarUI(container, events) {
                                 <option value="Exam">Exam</option>
                                 <option value="Project">Project</option>
                                 <option value="Study">Study</option>
-                                <option value="Gym">Gym</option>
                             </select>
                         </div>
                         <select id="ev-status" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px; font-size: 0.85rem;">
@@ -95,7 +94,7 @@ function generateCompactGrid(year, month, events) {
     }
     
     const todayStr = new Date().toISOString().split('T')[0];
-    const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#03dac6', Gym: '#ffb74d', Study: '#81d4fa' };
+    const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#ffb74d', Study: '#81d4fa' };
 
     for (let d = 1; d <= lastDay.getDate(); d++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -149,7 +148,7 @@ window.selectDay = function(dateStr, events) {
     if (dayEvents.length === 0) {
         agendaEvents.innerHTML = '<p class="cal-no-events">Nothing planned.</p>';
     } else {
-        const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#03dac6', Gym: '#ffb74d', Study: '#81d4fa' };
+        const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#ffb74d', Study: '#81d4fa' };
         const STATUS_BADGE = { planned: 'var(--text-muted)', in_progress: 'var(--accent-yellow)', done: 'var(--accent-teal)' };
         
         agendaEvents.innerHTML = dayEvents.map(e => `
@@ -184,7 +183,6 @@ window.startEditEvent = function(event, dateStr) {
                     <option value="Exam" ${event.label === 'Exam' ? 'selected' : ''}>Exam</option>
                     <option value="Project" ${event.label === 'Project' ? 'selected' : ''}>Project</option>
                     <option value="Study" ${event.label === 'Study' ? 'selected' : ''}>Study</option>
-                    <option value="Gym" ${event.label === 'Gym' ? 'selected' : ''}>Gym</option>
                 </select>
                 <select id="edit-status-${event.id}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.8rem;">
                     <option value="planned" ${event.status === 'planned' ? 'selected' : ''}>Planned</option>
