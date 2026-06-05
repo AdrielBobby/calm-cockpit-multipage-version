@@ -176,7 +176,10 @@ window.startEditEvent = function(event, dateStr) {
     
     item.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--accent-purple);">
-            <input type="text" id="edit-title-${event.id}" value="${event.title}" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+            <div style="display: flex; gap: 8px;">
+                <input type="date" id="edit-date-${event.id}" value="${event.date}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.85rem; color-scheme: dark;">
+                <input type="text" id="edit-title-${event.id}" value="${event.title}" style="flex: 2; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+            </div>
             <div style="display: flex; gap: 8px;">
                 <select id="edit-label-${event.id}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.8rem;">
                     <option value="Personal" ${event.label === 'Personal' ? 'selected' : ''}>Personal</option>
@@ -206,6 +209,7 @@ window.cancelEditEvent = function(id, dateStr) {
 
 window.saveEditEvent = async function(id, dateStr) {
     const title = document.getElementById(`edit-title-${id}`).value;
+    const date = document.getElementById(`edit-date-${id}`).value;
     const label = document.getElementById(`edit-label-${id}`).value;
     const status = document.getElementById(`edit-status-${id}`).value;
     
@@ -213,7 +217,7 @@ window.saveEditEvent = async function(id, dateStr) {
         const response = await fetch(`/api/calendar/event/${id}/update`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, label, status })
+            body: JSON.stringify({ title, date, label, status })
         });
         if (response.ok) {
             window.targetCalendarDate = dateStr;
