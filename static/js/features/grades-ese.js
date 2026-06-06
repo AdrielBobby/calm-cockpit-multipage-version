@@ -142,19 +142,35 @@ window.switchGradesTab = async function(tab, btn) {
                     <input type="number" id="eseMaxESE" placeholder="Max ESE" value="100" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px;">
                 </div>
                 <div style="display: flex; gap: 8px; margin-bottom: 24px;">
-                    <button class="ese-preset-btn" onclick="eseSetPreset('theory')" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Theory</button>
-                    <button class="ese-preset-btn" onclick="eseSetPreset('integrated')" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Integrated</button>
-                    <button class="ese-preset-btn" onclick="eseSetPreset('lab')" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Lab</button>
+                    <button class="ese-preset-btn" onclick="eseSetPreset('theory', this)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Theory</button>
+                    <button class="ese-preset-btn" onclick="eseSetPreset('integrated', this)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Integrated</button>
+                    <button class="ese-preset-btn" onclick="eseSetPreset('lab', this)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Lab</button>
                     <button id="eseAddSubjectBtn" onclick="eseAddSubject()" style="background: var(--accent-purple); color: white; border: none; padding: 8px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-left: auto;">Add Subject</button>
                 </div>
                 <div id="eseSubjectsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-                    <div class="ese-empty-state" style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">No subjects yet — add one above to get started.</div>
+                    <p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Loading subjects...</p>
                 </div>
             </div>
         `;
-        window.eseSubjects = window.eseSubjects || [];
-        eseRenderSubjects();
+        window.fetchEseSubjects();
     }
+};
+
+window.fetchEseSubjects = async function() {
+    try {
+        const response = await fetch('/api/grades/ese-subjects');
+        const result = await response.json();
+        if (result.status === 'success') {
+            window.eseSubjects = result.data.map(row => ({
+                id: row.id,
+                name: row.subject_name,
+                current: row.current_marks,
+                maxSess: row.max_sessional,
+                maxESE: row.max_ese
+            }));
+            eseRenderSubjects();
+        }
+    } catch (e) { console.error("Error fetching ESE subjects", e); }
 };
 
 window.updateGradeSubjectName = async function(subjIdx, name) {
@@ -167,7 +183,7 @@ window.updateGradeSubjectName = async function(subjIdx, name) {
     } catch (e) { console.error("Failed to update subject name"); }
 };
 
-/* ── Rest of calculator logic unchanged ── */
+/* ── ESE Calculator logic ── */
 window.eseSubjects = [];
 const gradeThresholds = [
     { grade: 'S',  point: 10,  min: 90, color: 'var(--accent-teal)' },
@@ -204,32 +220,44 @@ window.eseSetPreset = function(type, btn) {
     }
 };
 
-window.eseAddSubject = function() {
+window.eseAddSubject = async function() {
     const name = document.getElementById('eseSubjectName').value.trim();
     const current = parseFloat(document.getElementById('eseCurrentMarks').value);
     const maxSess = parseFloat(document.getElementById('eseMaxSessional').value);
     const maxESE = parseFloat(document.getElementById('eseMaxESE').value);
     if (!name || isNaN(current) || isNaN(maxSess) || isNaN(maxESE)) return alert('Fill in all fields');
-    window.eseSubjects.push({ name, current, maxSess, maxESE });
-    document.getElementById('eseSubjectName').value = '';
-    document.getElementById('eseCurrentMarks').value = '';
-    eseRenderSubjects();
+    
+    try {
+        const response = await fetch('/api/grades/ese-subjects', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name, current, maxSess, maxESE })
+        });
+        if (response.ok) {
+            document.getElementById('eseSubjectName').value = '';
+            document.getElementById('eseCurrentMarks').value = '';
+            window.fetchEseSubjects();
+        }
+    } catch (e) { console.error("Failed to add subject", e); }
 };
 
-window.eseDeleteSubject = function(idx) {
-    window.eseSubjects.splice(idx, 1);
-    eseRenderSubjects();
+window.eseDeleteSubject = async function(id) {
+    if (!confirm("Remove this subject from calculator?")) return;
+    try {
+        const response = await fetch(`/api/grades/ese-subjects/${id}`, { method: 'DELETE' });
+        if (response.ok) window.fetchEseSubjects();
+    } catch (e) { console.error("Failed to delete subject", e); }
 };
 
 function eseRenderSubjects() {
     const elContainer = document.getElementById('eseSubjectsContainer');
     if (!elContainer) return;
     if (window.eseSubjects.length === 0) {
-        elContainer.innerHTML = '<div class="ese-empty-state" style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">No subjects yet.</div>';
+        elContainer.innerHTML = '<div class="ese-empty-state" style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">No subjects yet — add one above to get started.</div>';
         return;
     }
     elContainer.innerHTML = '';
-    window.eseSubjects.forEach((subject, index) => {
+    window.eseSubjects.forEach((subject) => {
         const totalMarks = subject.maxSess + subject.maxESE;
         const currentPct = ((subject.current / totalMarks) * 100).toFixed(1);
         const minESEThreshold = 0.4 * subject.maxESE;
@@ -244,7 +272,7 @@ function eseRenderSubjects() {
         });
         const card = document.createElement('div');
         card.style = "background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px;";
-        card.innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:12px;"><strong>${subject.name}</strong><button onclick="eseDeleteSubject(${index})" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;">&times;</button></div><div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px; display:flex; gap:12px;"><span>Current: <b>${subject.current}/${subject.maxSess}</b></span><span>Max ESE: <b>${subject.maxESE}</b></span></div><table style="width:100%; font-size:0.85rem; border-collapse:collapse;"><thead><tr style="text-align:left; color:var(--text-muted); border-bottom:1px solid var(--card-border);"><th style="padding:4px;">Grade</th><th style="padding:4px;">Target</th><th style="padding:4px;">Min ESE</th></tr></thead><tbody>${rowsHTML}</tbody></table>`;
+        card.innerHTML = `<div style="display:flex; justify-content:space-between; margin-bottom:12px;"><strong>${subject.name}</strong><button onclick="eseDeleteSubject(${subject.id})" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">&times;</button></div><div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px; display:flex; gap:12px;"><span>Current: <b>${subject.current}/${subject.maxSess}</b></span><span>Max ESE: <b>${subject.maxESE}</b></span></div><table style="width:100%; font-size:0.85rem; border-collapse:collapse;"><thead><tr style="text-align:left; color:var(--text-muted); border-bottom:1px solid var(--card-border);"><th style="padding:4px;">Grade</th><th style="padding:4px;">Target</th><th style="padding:4px;">Min ESE</th></tr></thead><tbody>${rowsHTML}</tbody></table>`;
         elContainer.appendChild(card);
     });
 }

@@ -674,5 +674,61 @@ def get_grades_history():
         }
     })
 
+# --- ESE Calculator Routes ---
+
+@app.route('/api/grades/ese-subjects', methods=['GET'])
+def get_ese_subjects():
+    db = get_db()
+    rows = db.execute('SELECT * FROM ese_calculator_subjects ORDER BY id ASC').fetchall()
+    return jsonify({"status": "success", "data": [dict(r) for r in rows]})
+
+@app.route('/api/grades/ese-subjects', methods=['POST'])
+def add_ese_subject():
+    data = request.json
+    db = get_db()
+    now_str = datetime.now().isoformat()
+    db.execute('''
+        INSERT INTO ese_calculator_subjects (subject_name, current_marks, max_sessional, max_ese, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (data.get('name'), data.get('current'), data.get('maxSess'), data.get('maxESE'), now_str))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/grades/ese-subjects/<int:id>', methods=['DELETE'])
+def delete_ese_subject(id):
+    db = get_db()
+    db.execute('DELETE FROM ese_calculator_subjects WHERE id = ?', (id,))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/grades/ese-subjects/<int:id>', methods=['PATCH'])
+def update_ese_subject(id):
+    data = request.json
+    db = get_db()
+    db.execute('''
+        UPDATE ese_calculator_subjects 
+        SET subject_name = ?, current_marks = ?, max_sessional = ?, max_ese = ?
+        WHERE id = ?
+    ''', (data.get('name'), data.get('current'), data.get('maxSess'), data.get('maxESE'), id))
+    db.commit()
+    return jsonify({"status": "success"})
+
+def init_db_schema():
+    with app.app_context():
+        db = get_db()
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS ese_calculator_subjects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subject_name TEXT NOT NULL,
+                current_marks REAL NOT NULL,
+                max_sessional REAL NOT NULL,
+                max_ese REAL NOT NULL,
+                created_at TEXT
+            )
+        ''')
+        db.commit()
+
+init_db_schema()
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

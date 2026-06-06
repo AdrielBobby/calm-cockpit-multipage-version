@@ -132,3 +132,64 @@ window.clearData = async function(type) {
         }
     } catch (e) { alert("Error clearing data"); }
 };
+
+// --- Overview Calendar Navigation ---
+window.dashCurrentMonth = new Date().getMonth();
+window.dashCurrentYear = new Date().getFullYear();
+
+window.navOverviewMonth = async function(dir) {
+    window.dashCurrentMonth += dir;
+    if (window.dashCurrentMonth > 11) { window.dashCurrentMonth = 0; window.dashCurrentYear++; }
+    if (window.dashCurrentMonth < 0) { window.dashCurrentMonth = 11; window.dashCurrentYear--; }
+    
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const label = document.getElementById('dash-month-label');
+    if (label) label.textContent = `${monthNames[window.dashCurrentMonth]} ${window.dashCurrentYear}`;
+
+    try {
+        const response = await fetch('/api/calendar/events');
+        const result = await response.json();
+        const events = result.data || [];
+        
+        const grid = document.getElementById('dash-cal-grid');
+        if (grid) {
+            grid.innerHTML = `
+                ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div class="cal-day-name">${d}</div>`).join('')}
+                ${window.generateDashboardGrid(window.dashCurrentYear, window.dashCurrentMonth, events)}
+            `;
+        }
+    } catch (e) { console.error("Failed to load overview calendar events", e); }
+};
+
+window.generateDashboardGrid = function(year, month, events) {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDow = (firstDay.getDay() + 6) % 7; // Adjust to Monday start
+    
+    let html = '';
+    for (let i = 0; i < startDow; i++) {
+        html += `<div class="cal-day-cell cal-day-empty" style="opacity: 0.1;"></div>`;
+    }
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#ffb74d', Study: '#81d4fa' };
+
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isToday = dateStr === todayStr;
+        const dayEvents = events.filter(e => e.date === dateStr);
+        
+        html += `
+            <div onclick="openCalendarAtDate('${dateStr}')" 
+                 class="cal-day-cell ${isToday ? 'cal-today' : ''}"
+                 data-date="${dateStr}">
+                <span class="cal-day-num">${d}</span>
+                <div class="cal-dots">
+                    ${dayEvents.slice(0, 3).map(e => `<span class="cal-dot" style="background: ${LABEL_COLORS[e.label] || 'var(--accent-teal)'};"></span>`).join('')}
+                    ${dayEvents.length > 3 ? `<span style="font-size: 0.6rem; color: var(--text-muted); line-height: 1;">+</span>` : ''}
+                </div>
+            </div>
+        `;
+    }
+    return html;
+};
