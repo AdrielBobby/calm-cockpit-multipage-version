@@ -32,7 +32,7 @@ body {
 .dashboard-container {
     width: 100%;
     max-width: 1920px;
-    min-width: 1200px;
+    /* min-width removed — mobile must be able to shrink */
     margin: 0 auto;
     padding: 24px;
     display: grid;
@@ -112,6 +112,12 @@ body {
     padding: 4px 8px;
     border-radius: 4px;
     transition: var(--transition);
+    /* ensure minimum touch target */
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-action:hover {
@@ -275,4 +281,215 @@ body {
 .btn-icon:hover {
     background: rgba(255, 255, 255, 0.1);
     color: var(--text-main);
+}
+
+/* ==============================================
+   TABLET  (768px – 1023px)
+   ============================================== */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .dashboard-container {
+        min-width: 0;
+        height: auto;
+        min-height: 100vh;
+        grid-template-columns: repeat(6, 1fr);
+        grid-template-rows: auto;
+        padding: 16px;
+        gap: 16px;
+        overflow-y: auto;
+    }
+
+    .top-bar    { grid-column: span 6; }
+    .tile-4-col { grid-column: span 3; }
+    .tile-12-col{ grid-column: span 6; }
+
+    body {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+}
+
+/* ==============================================
+   MOBILE  (≤ 767px)
+   ============================================== */
+@media (max-width: 767px) {
+
+    /* ---- Global ---- */
+    body {
+        font-size: 15px;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    /* ---- Dashboard container: single column, scrollable ---- */
+    .dashboard-container {
+        min-width: 0;
+        width: 100%;
+        padding: 12px;
+        gap: 12px;
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 100dvh;
+        overflow-y: visible;
+    }
+
+    /* Force all tiles to full width */
+    .tile-4-col,
+    .tile-12-col,
+    [class*="tile-"] {
+        grid-column: span 1 !important;
+        width: 100% !important;
+    }
+
+    /* ---- Top bar ---- */
+    .top-bar {
+        padding: 10px 14px;
+        gap: 8px;
+        flex-wrap: nowrap;
+    }
+
+    .top-bar-left {
+        gap: 10px;
+        flex-shrink: 1;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .date-display {
+        font-size: 0.82rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .time-display {
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+
+    .user-avatar {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
+
+    /* ---- Tile cards ---- */
+    .tile {
+        width: 100%;
+        min-height: auto;
+        padding: 16px;
+    }
+
+    .tile-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .tile-header h2 {
+        font-size: 0.95rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+    }
+
+    /* ---- Attendance snapshot: 2×2 grid ---- */
+    #attendance-snapshot-container > div {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* ---- Calendar tile ---- */
+    .cal-day-cell {
+        min-height: 36px;
+        padding: 4px 2px 3px;
+        gap: 2px;
+    }
+
+    .cal-day-num {
+        font-size: clamp(0.65rem, 2vw, 0.85rem);
+    }
+
+    .cal-day-name {
+        font-size: clamp(0.58rem, 1.8vw, 0.72rem);
+        padding: 3px 0 5px;
+    }
+
+    .cal-dot  { width: 4px; height: 4px; }
+
+    /* Calendar nav — ensure tappable */
+    .btn-icon {
+        width: 44px;
+        height: 44px;
+        font-size: 1.3rem;
+    }
+
+    /* ---- btn-action touch targets ---- */
+    .btn-action {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0 8px;
+    }
+
+    /* ---- Modals: near full-screen ---- */
+    .modal-overlay {
+        align-items: flex-end;   /* slide up from bottom */
+    }
+
+    .modal-content {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 92dvh;
+        max-height: 92dvh !important;
+        border-radius: 20px 20px 0 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        overflow-y: auto;
+        padding: 20px 16px;
+        transform: translateY(100%);
+    }
+
+    .modal-content.compact-modal {
+        max-width: 100vw !important;
+        height: auto;
+        max-height: 88dvh;
+        border-radius: 20px 20px 0 0;
+    }
+
+    .modal-overlay.active .modal-content {
+        transform: translateY(0);
+    }
+
+    .modal-header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+    }
+
+    /* Close button — 44×44px touch target */
+    .btn-close {
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.6rem;
+    }
+
+    /* ---- No horizontal scroll anywhere ---- */
+    * {
+        max-width: 100%;
+    }
+
+    table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+    }
 }
