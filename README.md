@@ -31,12 +31,29 @@ Navigate to the project directory and install the required dependencies:
 pip install -r requirements.txt
 ```
 
-### 3. Database Setup
-The dashboard is designed to use the existing `cockpit.db`. Ensure the database file is located in the `instance/` folder:
+### 3. Database Initialization (First-Time Setup)
+If you are setting up the project for the first time (no `cockpit.db` exists yet), you need to create and initialize the database before running the app.
+
+Open a terminal in the project root and run:
+```bash
+python app.py initdb
+```
+> This creates the `instance/cockpit.db` SQLite file and sets up all required tables automatically.
+
+Alternatively, you can initialize from the Python shell:
+```bash
+python
+>>> from app import app, db
+>>> with app.app_context():
+...     db.create_all()
+>>> exit()
+```
+
+After initialization the structure should look like:
 ```text
-C:\Users\adrie\OneDrive\Desktop\Github\calm-cockpit-multipage-version\
-└── instance\
-    └── cockpit.db
+calm-cockpit-multipage-version/
+└── instance/
+    └── cockpit.db   ← created after init
 ```
 
 ### 4. Running the Dashboard

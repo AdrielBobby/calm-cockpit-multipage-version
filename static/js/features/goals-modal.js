@@ -34,6 +34,17 @@ window.loadGoalsModal = async function(modalBody) {
         });
         html += '</div></div>';
         modalBody.innerHTML = html;
+
+        // Wire up Enter key on the input — press Enter to add a goal
+        const inputEl = document.getElementById('new-goal-text');
+        if (inputEl) {
+            inputEl.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    window.addNewGoal();
+                }
+            });
+        }
         
     } catch (error) {
         modalBody.innerHTML = `<p style="color: var(--accent-red);">Error loading goals.</p>`;
@@ -50,8 +61,11 @@ window.addNewGoal = async function() {
             body: JSON.stringify({ text: text })
         });
         if (response.ok) {
-            window.loadGoalsModal(document.getElementById('modal-body'));
+            await window.loadGoalsModal(document.getElementById('modal-body'));
             if (window.refreshGoalsSnapshot) window.refreshGoalsSnapshot();
+            // Restore focus so the user can keep typing without clicking
+            const inputEl = document.getElementById('new-goal-text');
+            if (inputEl) inputEl.focus();
         }
     } catch (e) { alert("Error adding goal"); }
 };
