@@ -21,6 +21,37 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 60000);
 
+/* ── Shared swipe helper ─────────────────────────────────────────────
+   Register once per target element. onSwipeLeft/onSwipeRight are
+   callbacks fired when the user swipes ≥50px horizontally with
+   horizontal movement dominating (prevents accidental scroll triggers).
+   All listeners are passive — never blocks scroll.
+   ──────────────────────────────────────────────────────────────────── */
+window.initSwipe = function(targetEl, onSwipeLeft, onSwipeRight) {
+    if (!targetEl) return;
+    let startX = 0;
+    let startY = 0;
+
+    const handleStart = (clientX, clientY) => {
+        startX = clientX;
+        startY = clientY;
+    };
+
+    const handleEnd = (clientX, clientY) => {
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+        if (dx < 0) onSwipeLeft();
+        else onSwipeRight();
+    };
+
+    targetEl.addEventListener('touchstart', (e) => handleStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+    targetEl.addEventListener('touchend', (e) => handleEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY), { passive: true });
+    
+    targetEl.addEventListener('mousedown', (e) => handleStart(e.clientX, e.clientY));
+    targetEl.addEventListener('mouseup', (e) => handleEnd(e.clientX, e.clientY));
+};
+
 // Global Refresh Functions
 window.refreshAttendanceSnapshot = async function() {
     const container = document.getElementById('attendance-snapshot-container');

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=7">
 </head>
 <body>
 
@@ -27,10 +27,12 @@
         <!-- Row 1 -->
         <div class="tile tile-4-col" id="tile-timetable">
             <div class="tile-header">
-                <h2>Today's Timetable</h2>
+                <button class="tile-nav-btn" id="tt-tile-prev" onclick="ttTileNav(-1)" aria-label="Previous view" disabled>&#8249;</button>
+                <h2 class="tile-title" id="tt-tile-label">Today's Timetable</h2>
+                <button class="tile-nav-btn" id="tt-tile-next" onclick="ttTileNav(1)" aria-label="Next view">&#8250;</button>
                 <button class="btn-action" data-modal="modal-timetable">...</button>
             </div>
-            <div class="tile-content">
+            <div class="tile-content" id="tt-tile-content">
                 {% if timetable %}
                     <ul style="list-style: none; padding: 0;">
                     {% for class in timetable %}
@@ -67,10 +69,12 @@
 
         <div class="tile tile-4-col" id="tile-grades">
             <div class="tile-header">
-                <h2>Grades Snapshot</h2>
+                <button class="tile-nav-btn" id="grades-tile-prev" onclick="gradesTileNav(-1)" aria-label="Previous view" disabled>&#8249;</button>
+                <h2 class="tile-title" id="grades-tile-label">Grades Snapshot</h2>
+                <button class="tile-nav-btn" id="grades-tile-next" onclick="gradesTileNav(1)" aria-label="Next view">&#8250;</button>
                 <button class="btn-action" data-modal="modal-grades">...</button>
             </div>
-            <div class="tile-content">
+            <div class="tile-content" id="grades-tile-content">
                 {% if grades %}
                     <div style="text-align: center; margin-bottom: 16px;">
                         <span style="font-size: 2.5rem; font-weight: 700; color: var(--accent-purple);">{{ grades.cgpa }}</span>
@@ -218,14 +222,15 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='js/features/grades-ese.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='js/modals.js') }}?v=5"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='js/features/grades-ese.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=8"></script>
+    <script src="{{ url_for('static', filename='js/modals.js') }}?v=7"></script>
 </body>
 </html>

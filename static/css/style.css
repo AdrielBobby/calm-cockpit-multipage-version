@@ -38,8 +38,8 @@ body {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
     gap: 24px;
-    height: 100vh;
-    grid-template-rows: auto 1fr 1fr auto;
+    min-height: 100vh;
+    grid-template-rows: auto 1fr auto auto;
 }
 
 /* Top Bar */
@@ -93,15 +93,46 @@ body {
 
 .tile-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 6px;
+    width: 100%;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    overflow: hidden; /* prevent any arrow from causing tile overflow */
     margin-bottom: 16px;
 }
 
-.tile-header h2 {
+.tile-nav-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-radius: var(--radius);
+}
+
+.tile-nav-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tile-header h2,
+.tile-title {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
     font-size: 1.1rem;
     font-weight: 600;
 }
+
+/* (moved to .tile-title) */
 
 .btn-action {
     background: transparent;
@@ -283,9 +314,50 @@ body {
     color: var(--text-main);
 }
 
+.btn-icon:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Tile header nav group: ‹ Title › */
+.tile-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;   /* contain h2 + arrows within tile width */
+}
+
+.tile-nav-group h2 {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Tile-specific nav buttons */
+.tile-nav-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 1rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 /* ==============================================
    TABLET  (768px – 1023px)
    ============================================== */
+@media (min-width: 768px) {
+    .dashboard-card, .tile {
+        overflow: hidden; /* not scroll or auto */
+        box-sizing: border-box;
+    }
+}
 @media (min-width: 768px) and (max-width: 1023px) {
     .dashboard-container {
         min-width: 0;
@@ -318,6 +390,59 @@ body {
         font-size: 15px;
         overflow-x: hidden;
         overflow-y: auto;
+    }
+
+    /* ---- Grades Modal Congestion Fixes ---- */
+    .grades-tab-row {
+        display: flex;
+        flex-wrap: wrap; /* allow tabs to wrap to second line if needed */
+        gap: 6px;
+        padding: 8px;
+    }
+
+    .grades-tab-btn {
+        flex: 1 1 auto;
+        min-width: 80px;
+        font-size: 0.75rem;
+        padding: 6px 8px;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .grades-add-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px;
+        box-sizing: border-box;
+        width: 100%;
+    }
+
+    .grades-add-row input {
+        flex: 1 1 80px;
+        min-width: 60px;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .grades-add-row .btn-primary {
+        flex-shrink: 0;
+    }
+
+    .grades-add-row .btn-danger {
+        flex-shrink: 0;
+        /* ensure Clear All is not clipped */
+        min-width: fit-content;
+    }
+
+    .modal-content {
+        padding: 12px;
+    }
+
+    /* Ensure nothing overflows modal width */
+    .modal-content * {
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     /* ---- Dashboard container: single column, scrollable ---- */
@@ -436,6 +561,13 @@ body {
         padding: 0 8px;
     }
 
+    /* ---- tile nav arrows: comfortably tappable, stays compact ---- */
+    .tile-nav-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 1.2rem;
+    }
+
     /* ---- Modals: near full-screen ---- */
     .modal-overlay {
         align-items: flex-end;   /* slide up from bottom */
@@ -491,5 +623,125 @@ body {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         max-width: 100%;
+    }
+}
+
+/* ==============================================
+   VIEW NAV ROW (Grades & Timetable arrow nav)
+   ============================================== */
+.view-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;        /* prevent children leaking outside card */
+    padding: 6px 4px 14px;  /* small horizontal inset so arrows don't touch edges */
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--card-border);
+    gap: 8px;
+    user-select: none;
+}
+
+.view-nav-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+    text-align: center;
+    flex: 1;
+    min-width: 0;            /* required for flex text truncation */
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    letter-spacing: 0.3px;
+}
+
+.view-nav-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    border-radius: 6px;
+    width: 44px;
+    height: 44px;
+    display: flex;           /* not inline-flex — avoids baseline alignment issues */
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    flex-shrink: 0;          /* buttons must not shrink */
+    transition: background var(--transition), color var(--transition), opacity var(--transition);
+}
+
+.view-nav-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-main);
+}
+
+.view-nav-btn:disabled,
+.view-nav-btn[aria-disabled="true"] {
+    opacity: 0.25;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ==============================================
+   PROJECT DETAIL VIEW
+   ============================================== */
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background var(--transition), color var(--transition);
+    margin-bottom: 20px;
+}
+
+.back-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-main);
+}
+
+.project-detail-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.project-status-badge {
+    font-size: 0.75rem;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* ==============================================
+   MOBILE overrides for view-nav and back-btn
+   ============================================== */
+@media (max-width: 767px) {
+    .view-nav-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 1.3rem;
+    }
+
+    .view-nav-label {
+        font-size: 0.9rem;
+    }
+
+    .back-btn {
+        min-height: 44px;
+        padding: 0 16px;
+        font-size: 0.9rem;
     }
 }
