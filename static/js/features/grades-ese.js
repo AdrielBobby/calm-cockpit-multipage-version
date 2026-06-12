@@ -182,22 +182,22 @@ window.renderInternalsTab = async function(container) {
 // ── ESE tab renderer ──────────────────────────────────────────────
 window.renderEseTab = function(container) {
     container.innerHTML = `
-        <div style="background: rgba(255,255,255,0.02); padding: 24px; border-radius: 12px; border: 1px solid var(--card-border);">
-            <h3 style="margin-bottom: 16px;">ESE Requirement Calculator</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 24px;">
-                <input type="text" id="eseSubjectName" placeholder="Subject Name" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px;">
-                <input type="number" id="eseCurrentMarks" placeholder="Current Marks" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px;">
-                <input type="number" id="eseMaxSessional" placeholder="Max Sessional" value="50" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px;">
-                <input type="number" id="eseMaxESE" placeholder="Max ESE" value="100" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px;">
+        <div class="ese-quick-view">
+            <h3>ESE Requirement Calculator</h3>
+            <div class="ese-input-grid">
+                <input type="text" id="eseSubjectName" placeholder="Subject Name">
+                <input type="number" id="eseCurrentMarks" placeholder="Current Marks">
+                <input type="number" id="eseMaxSessional" placeholder="Max Sessional" value="50">
+                <input type="number" id="eseMaxESE" placeholder="Max ESE" value="100">
             </div>
-            <div style="display: flex; gap: 8px; margin-bottom: 24px;">
-                <button class="ese-preset-btn" onclick="eseSetPreset('theory', this)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Theory</button>
-                <button class="ese-preset-btn" onclick="eseSetPreset('integrated', this)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Integrated</button>
-                <button class="ese-preset-btn" onclick="eseSetPreset('lab', this)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Lab</button>
-                <button id="eseAddSubjectBtn" onclick="eseAddSubject()" style="background: var(--accent-purple); color: white; border: none; padding: 8px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-left: auto;">Add Subject</button>
+            <div class="ese-type-row">
+                <button class="ese-preset-btn type-btn" onclick="eseSetPreset('theory', this)">Theory</button>
+                <button class="ese-preset-btn type-btn" onclick="eseSetPreset('integrated', this)">Integrated</button>
+                <button class="ese-preset-btn type-btn" onclick="eseSetPreset('lab', this)">Lab</button>
+                <button id="eseAddSubjectBtn" class="add-subject-btn" onclick="eseAddSubject()">Add Subject</button>
             </div>
-            <div id="eseSubjectsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-                <p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Loading subjects...</p>
+            <div id="eseSubjectsContainer" class="ese-subjects-container">
+                <p class="ese-empty-state">Loading subjects...</p>
             </div>
         </div>
     `;
