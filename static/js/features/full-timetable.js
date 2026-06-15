@@ -10,8 +10,8 @@
    ───────────────────────────────────────────────────────────────── */
 
 // ── Tab ordering for the arrow-nav cycle ─────────────────────────
-const TT_TABS   = ['week', 'tasks'];
-const TT_LABELS = { week: 'Classes', tasks: 'Tasks & Events' };
+const TT_TABS   = ['week', 'tasks', 'manage'];
+const TT_LABELS = { week: 'Classes', tasks: 'Tasks & Events', manage: 'Manage Timetable' };
 let ttCurrentIndex   = 0;    // tracks active view
 let ttSwipeAttached  = false; // guard: attach swipe only once per modal open
 
@@ -21,22 +21,26 @@ window.loadTimetableModal = async function(modalBody) {
     ttCurrentIndex  = 0;
 
     try {
-        const [ttRes, evRes] = await Promise.all([
+        const [ttRes, evRes, subRes] = await Promise.all([
             fetch('/api/timetable/week'),
-            fetch('/api/calendar/events')
+            fetch('/api/calendar/events'),
+            fetch('/api/subjects')
         ]);
 
         const ttData = await ttRes.json();
         const evData = await evRes.json();
+        const subData = await subRes.json();
 
         window.timetableData  = ttData.data;
         window.allEventsData  = evData.data;
+        window.subjectsData   = subData.data;
 
         // Render shell with tab buttons + content pane
         let html = `<div style="display: flex; gap: 16px; flex-direction: column;">
             <div style="display: flex; gap: 16px; border-bottom: 1px solid var(--card-border); padding-bottom: 8px; margin-bottom: 16px;">
-                <button class="tt-tab active" id="tt-btn-week"  onclick="switchTimetableTab('week',  this)" style="background:transparent; border:none; color:var(--text-main); font-weight:bold; cursor:pointer; padding: 8px 16px;">Classes</button>
-                <button class="tt-tab"        id="tt-btn-tasks" onclick="switchTimetableTab('tasks', this)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding: 8px 16px;">Tasks &amp; Events</button>
+                <button class="tt-tab active" id="tt-btn-week"   onclick="switchTimetableTab('week',   this)" style="background:transparent; border:none; color:var(--text-main); font-weight:bold; cursor:pointer; padding: 8px 16px;">Classes</button>
+                <button class="tt-tab"        id="tt-btn-tasks"  onclick="switchTimetableTab('tasks',  this)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding: 8px 16px;">Tasks &amp; Events</button>
+                <button class="tt-tab"        id="tt-btn-manage" onclick="switchTimetableTab('manage', this)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding: 8px 16px;">Manage</button>
             </div>
             <div id="tt-tab-content"></div>
         </div>`;
@@ -50,8 +54,18 @@ window.loadTimetableModal = async function(modalBody) {
         if (!ttSwipeAttached) {
             window.initSwipe(
                 document.getElementById('tt-tab-content'),
-                () => window.switchTimetableTab('tasks', document.getElementById('tt-btn-tasks')), // swipe left -> tasks
-                () => window.switchTimetableTab('week', document.getElementById('tt-btn-week'))   // swipe right -> week
+                () => {
+                    if (ttCurrentIndex < TT_TABS.length - 1) {
+                        const nextTab = TT_TABS[ttCurrentIndex + 1];
+                        switchTimetableTab(nextTab, document.getElementById(`tt-btn-${nextTab}`));
+                    }
+                },
+                () => {
+                    if (ttCurrentIndex > 0) {
+                        const prevTab = TT_TABS[ttCurrentIndex - 1];
+                        switchTimetableTab(prevTab, document.getElementById(`tt-btn-${prevTab}`));
+                    }
+                }
             );
             ttSwipeAttached = true;
         }
@@ -93,6 +107,8 @@ function _renderTtContent(tab) {
 
     if (tab === 'tasks') {
         container.innerHTML = renderTasksView(window.allEventsData);
+    } else if (tab === 'manage') {
+        container.innerHTML = renderManageView(window.timetableData, window.subjectsData);
     } else {
         container.innerHTML = renderWeeklyTimetable(window.timetableData, false);
     }
@@ -181,7 +197,7 @@ function renderWeeklyTimetable(data, hideControls = false) {
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <span style="color: var(--text-muted); font-size: 0.9rem; margin-right: 12px;">${c.time}</span>
-                            <strong>${c.subject}</strong>
+                            <strong>${c.short_name || c.subject}</strong>
                         </div>
                         ${!hideControls ? `
                         <div style="display: flex; gap: 8px;">
@@ -344,3 +360,127 @@ window.markAttendance = async function(timetableId, status, btn) {
 
 // Expose nav function globally (called from onclick attributes in nav row)
 window._ttNavTo = _ttNavTo;
+
+// ── Manage View Renderer ──────────────────────────────────────────
+function renderManageView(data, subjects) {
+    let html = `<div style="display: flex; flex-direction: column; gap: 16px;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Edit the timetable structure by changing subjects or times for each day.</p>`;
+    
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    days.forEach(day => {
+        const classes = data[day]?.classes || [];
+        if (classes.length === 0) return;
+
+        html += `<div style="margin-bottom: 16px;">
+            <h4 style="border-bottom: 1px solid var(--card-border); padding-bottom: 6px; margin-bottom: 12px;">${day}</h4>
+            <div style="display: flex; flex-direction: column; gap: 8px;">`;
+        
+        classes.forEach(c => {
+            html += `
+                <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
+                    <input type="text" value="${c.time}" onchange="updateTimetableEntry(${c.id}, this.value, null, null)" 
+                           style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;">
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">to</span>
+                    <input type="text" value="${c.end_time || ''}" onchange="updateTimetableEntry(${c.id}, null, this.value, null)" 
+                           style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;">
+                    
+                    <select onchange="updateTimetableEntry(${c.id}, null, null, this.value)" 
+                            style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 4px; border-radius: 4px; font-size: 0.85rem;">
+                        ${subjects.map(s => `<option value="${s.id}" ${s.id === c.subject_id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    });
+
+    html += `<div style="margin-top: 24px;">
+        <h4 style="border-bottom: 1px solid var(--card-border); padding-bottom: 6px; margin-bottom: 12px;">Subject Names</h4>
+        <div style="display: flex; flex-direction: column; gap: 8px;">`;
+    
+    subjects.forEach(s => {
+        html += `
+            <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
+                <input type="text" value="${s.name}" onchange="updateTimetableSubjectName(${s.id}, this.value, null)" 
+                       placeholder="Long Name" style="flex: 2; background: transparent; border: 1px solid transparent; color: var(--text-main); font-size: 0.85rem; padding: 4px; border-radius: 4px; font-weight: 600;">
+                <input type="text" value="${s.short_name || ''}" onchange="updateTimetableSubjectName(${s.id}, null, this.value)" 
+                       placeholder="Short" style="flex: 1; background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); font-size: 0.8rem; padding: 4px; border-radius: 4px; text-align: center;">
+            </div>
+        `;
+    });
+    html += `</div></div></div>`;
+    return html;
+}
+
+// ── Update Subject Name ──────────────────────────────────────────
+window.updateTimetableSubjectName = async function(id, name, shortName) {
+    const sub = window.subjectsData.find(s => s.id === id);
+    if (!sub) return;
+
+    const payload = {
+        id: id,
+        name: name || sub.name,
+        short_name: shortName || sub.short_name
+    };
+
+    try {
+        const response = await fetch('/api/subjects/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (response.ok) {
+            // Update local cache
+            sub.name = payload.name;
+            sub.short_name = payload.short_name;
+            
+            // Also update timetableData names
+            for (const day in window.timetableData) {
+                window.timetableData[day].classes.forEach(c => {
+                    if (c.subject_id === id) {
+                        c.subject = payload.name;
+                        c.short_name = payload.short_name;
+                    }
+                });
+            }
+            if (window.refreshAttendanceSnapshot) window.refreshAttendanceSnapshot();
+            if (window.refreshTimetableSnapshot) window.refreshTimetableSnapshot();
+        }
+    } catch (e) { console.error("Failed to update subject name"); }
+};
+
+// ── Update Timetable Entry ────────────────────────────────────────
+window.updateTimetableEntry = async function(id, startTime, endTime, subjectId) {
+    // Find current data
+    let entry = null;
+    for (const day in window.timetableData) {
+        entry = window.timetableData[day].classes.find(c => c.id === id);
+        if (entry) break;
+    }
+    if (!entry) return;
+
+    const payload = {
+        id: id,
+        start_time: startTime || entry.time,
+        end_time: endTime || entry.end_time,
+        subject_id: subjectId || entry.subject_id
+    };
+
+    try {
+        const response = await fetch('/api/timetable/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (response.ok) {
+            // Update local cache
+            entry.time = payload.start_time;
+            entry.end_time = payload.end_time;
+            entry.subject_id = parseInt(payload.subject_id);
+            const sub = window.subjectsData.find(s => s.id == entry.subject_id);
+            if (sub) entry.subject = sub.name;
+
+            if (window.refreshTimetableSnapshot) window.refreshTimetableSnapshot();
+        }
+    } catch (e) { console.error("Failed to update timetable entry"); }
+};

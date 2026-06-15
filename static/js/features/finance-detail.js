@@ -11,8 +11,8 @@ window.loadFinanceModal = async function(modalBody) {
         
         // 1. Balance Breakout & Clear All
         html += `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; flex: 1;">
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
                     <div style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
                         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Net Balance</div>
                         <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-purple);">₹${summaryResult.data.balance}</div>
@@ -29,7 +29,9 @@ window.loadFinanceModal = async function(modalBody) {
         }
         html += `
                 </div>
-                <button onclick="clearData('finance')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 12px 24px; border-radius: 12px; cursor: pointer; font-weight: bold;">Clear History</button>
+                <div style="display: flex; justify-content: flex-end;">
+                    <button onclick="clearData('finance')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: bold; white-space: nowrap;">Clear History</button>
+                </div>
             </div>
         `;
 

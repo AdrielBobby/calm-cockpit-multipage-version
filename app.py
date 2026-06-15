@@ -29,7 +29,7 @@ def index():
     
     # --- 1. Today's Timetable ---
     timetable_rows = db.execute(
-        'SELECT t.start_time, s.name as subject '
+        'SELECT t.start_time, s.short_name as subject '
         'FROM timetable t JOIN subjects s ON t.subject_id = s.id '
         'WHERE t.day_of_week = ?', (day_name,)
     ).fetchall()
@@ -148,13 +148,32 @@ def index():
 
 # --- API Routes ---
 
+@app.route('/api/subjects', methods=['GET'])
+def get_subjects():
+    db = get_db()
+    rows = db.execute('SELECT id, name, short_name FROM subjects').fetchall()
+    return jsonify({"status": "success", "data": [dict(r) for r in rows]})
+
 @app.route('/api/subjects/update', methods=['POST'])
 def update_subject():
     data = request.json
     db = get_db()
-    db.execute('UPDATE subjects SET name = ? WHERE id = ?', (data.get('name'), data.get('id')))
+    db.execute('UPDATE subjects SET name = ?, short_name = ? WHERE id = ?', 
+               (data.get('name'), data.get('short_name'), data.get('id')))
     db.commit()
     return jsonify({"status": "success"})
+
+@app.route('/api/timetable/today', methods=['GET'])
+def get_today_timetable():
+    now = datetime.now()
+    day_name = now.strftime("%A")
+    db = get_db()
+    rows = db.execute(
+        'SELECT t.start_time, s.short_name as subject '
+        'FROM timetable t JOIN subjects s ON t.subject_id = s.id '
+        'WHERE t.day_of_week = ?', (day_name,)
+    ).fetchall()
+    return jsonify({"status": "success", "data": [{"time": r['start_time'], "subject": r['subject']} for r in rows]})
 
 @app.route('/api/timetable/week', methods=['GET'])
 def get_timetable():
@@ -175,7 +194,7 @@ def get_timetable():
         
         # Fetch classes and their current status
         rows = db.execute(
-            'SELECT t.id, t.start_time, s.name as subject, a.status '
+            'SELECT t.id, t.start_time, t.end_time, t.subject_id, s.name as subject, s.short_name, a.status '
             'FROM timetable t '
             'JOIN subjects s ON t.subject_id = s.id '
             'LEFT JOIN attendance a ON t.id = a.timetable_id AND a.date = ? '
@@ -186,12 +205,31 @@ def get_timetable():
             "date": date_str,
             "is_holiday": is_holiday,
             "classes": [
-                {"id": r['id'], "time": r['start_time'], "subject": r['subject'], "status": r['status'] or "unmarked"} 
+                {
+                    "id": r['id'], 
+                    "time": r['start_time'], 
+                    "end_time": r['end_time'],
+                    "subject_id": r['subject_id'],
+                    "subject": r['subject'], 
+                    "short_name": r['short_name'],
+                    "status": r['status'] or "unmarked"
+                } 
                 for r in rows
             ]
         }
     
     return jsonify({"status": "success", "data": data})
+
+@app.route('/api/timetable/update', methods=['POST'])
+def update_timetable_entry():
+    data = request.json
+    db = get_db()
+    db.execute(
+        'UPDATE timetable SET subject_id = ?, start_time = ?, end_time = ? WHERE id = ?',
+        (data.get('subject_id'), data.get('start_time'), data.get('end_time'), data.get('id'))
+    )
+    db.commit()
+    return jsonify({"status": "success"})
 
 @app.route('/api/attendance/snapshot', methods=['GET'])
 def get_attendance_snapshot():

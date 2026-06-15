@@ -53,6 +53,32 @@ window.initSwipe = function(targetEl, onSwipeLeft, onSwipeRight) {
 };
 
 // Global Refresh Functions
+window.refreshTimetableSnapshot = async function() {
+    const container = document.getElementById('tt-tile-content');
+    if (!container) return;
+    try {
+        const response = await fetch('/api/timetable/today');
+        const result = await response.json();
+        if (result.status === 'success') {
+            if (result.data.length === 0) {
+                container.innerHTML = '<p class="text-muted" style="color: var(--text-muted); font-size: 0.9rem;">No classes today! 🎉</p>';
+            } else {
+                let html = '<ul style="list-style: none; padding: 0;">';
+                result.data.forEach(c => {
+                    html += `
+                        <li style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px;">
+                            <span style="color: var(--text-muted); font-size: 0.9rem;">${c.time}</span> 
+                            <strong style="text-align: right;">${c.subject}</strong>
+                        </li>
+                    `;
+                });
+                html += '</ul>';
+                container.innerHTML = html;
+            }
+        }
+    } catch (e) { console.error(e); }
+};
+
 window.refreshAttendanceSnapshot = async function() {
     const container = document.getElementById('attendance-snapshot-container');
     if (!container) return;
