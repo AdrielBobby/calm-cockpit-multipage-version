@@ -897,3 +897,131 @@ body {
         font-size: 0.9rem;
     }
 }
+
+/* ==============================================
+   WEEKLY OVERRIDE UI ELEMENTS
+   ============================================== */
+
+/* "✦ Modified this week" badge */
+.override-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--accent-purple);
+    background: rgba(167, 139, 250, 0.14);
+    border: 1px solid rgba(167, 139, 250, 0.35);
+    padding: 2px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* "↩ Revert to base" tiny text button */
+.day-revert-link {
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: var(--accent-red);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background var(--transition), color var(--transition);
+}
+.day-revert-link:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* "This week only" toggle track label */
+.override-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.override-toggle-track {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--card-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+    white-space: nowrap;
+}
+
+/* When the hidden checkbox is checked, style the visible track */
+.override-toggle-cb:checked + .override-toggle-track {
+    background: rgba(167, 139, 250, 0.16);
+    border-color: rgba(167, 139, 250, 0.45);
+    color: var(--accent-purple);
+}
+
+.override-toggle-track.forced {
+    background: rgba(167, 139, 250, 0.08);
+    border-color: rgba(167, 139, 250, 0.25);
+    color: rgba(167, 139, 250, 0.7);
+    cursor: default;
+    opacity: 0.8;
+}
+
+/* Weekend / Saturday holiday note */
+.weekend-holiday-note {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed var(--card-border);
+    padding: 10px 14px;
+    border-radius: 8px;
+    line-height: 1.5;
+}
+
+/* Override slot rows — purple-tinted vs base (neutral) */
+.override-slot-row {
+    animation: fadeSlotIn 0.18s ease;
+}
+
+@keyframes fadeSlotIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Manage day section header */
+.manage-day-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+}
+
+.manage-day-header h4 {
+    flex: 1;
+    margin: 0;
+    min-width: 80px;
+}
+
+/* Mobile: stack manage header items */
+@media (max-width: 767px) {
+    .manage-day-header {
+        gap: 6px;
+    }
+    .override-badge,
+    .day-revert-link,
+    .override-toggle-label {
+        font-size: 0.65rem;
+    }
+}
+
