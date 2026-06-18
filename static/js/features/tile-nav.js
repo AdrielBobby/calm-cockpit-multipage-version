@@ -85,7 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         Exam: '#cf6679',
                         Project: '#03dac6',
                         Gym: '#ffb74d',
-                        Study: '#81d4fa'
+                        Study: '#50fb07',
+                        Clg: '#81d4fa'
                     };
                     let html = '<ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:8px;">';
                     events.forEach(e => {

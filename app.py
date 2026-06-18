@@ -116,7 +116,8 @@ def index():
         'Personal': '#bb86fc', 
         'Exam': '#cf6679', 
         'Project': '#ffb74d', 
-        'Study': '#81d4fa'
+        'Study': '#50fb07',
+        'Clg': '#81d4fa'
     }
     
     events_by_day = {}

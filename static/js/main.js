@@ -229,7 +229,7 @@ window.generateDashboardGrid = function(year, month, events) {
     }
     
     const todayStr = new Date().toISOString().split('T')[0];
-    const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#ffb74d', Study: '#81d4fa' };
+    const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#ffb74d', Study: '#50fb07', Clg: '#81d4fa' };
 
     for (let d = 1; d <= lastDay.getDate(); d++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;

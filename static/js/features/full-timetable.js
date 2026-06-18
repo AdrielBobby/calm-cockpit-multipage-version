@@ -246,7 +246,7 @@ function renderWeeklyTimetable(data, hideControls = false) {
 
 // ── Tasks view renderer ───────────────────────────────────────────
 function renderTasksView(events, filterStatus = 'all') {
-    const LABEL_COLORS  = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#03dac6', Gym: '#ffb74d', Study: '#81d4fa' };
+    const LABEL_COLORS  = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#03dac6', Gym: '#ffb74d', Study: '#50fb07', Clg: '#81d4fa' };
     const STATUS_COLORS = { planned: 'var(--text-muted)', in_progress: 'var(--accent-yellow)', done: 'var(--accent-teal)' };
 
     let filteredEvents = events;
