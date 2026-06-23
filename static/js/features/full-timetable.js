@@ -225,12 +225,12 @@ function renderWeeklyTimetable(data, hideControls = false) {
                     ${!hideControls ? `
                     <div style="display: flex; gap: 8px;">
                         <button
-                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', ${c.subject_id}, '${c.time}', 'attended', this)` : `markAttendance(${c.id}, 'attended', this)`}"
+                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', ${c.subject_id}, '${c.time}', 'attended', '${date}', this)` : `markAttendance(${c.id}, 'attended', '${date}', this)`}"
                             style="background: ${isAttended ? 'var(--accent-teal)' : 'transparent'}; border: 1px solid var(--accent-teal); color: ${isAttended ? 'var(--bg-color)' : 'var(--accent-teal)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
                             Present
                         </button>
                         <button
-                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', ${c.subject_id}, '${c.time}', 'missed', this)` : `markAttendance(${c.id}, 'missed', this)`}"
+                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', ${c.subject_id}, '${c.time}', 'missed', '${date}', this)` : `markAttendance(${c.id}, 'missed', '${date}', this)`}"
                             style="background: ${isMissed ? 'var(--accent-red)' : 'transparent'}; border: 1px solid var(--accent-red); color: ${isMissed ? 'var(--text-main)' : 'var(--accent-red)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
                             Absent
                         </button>
@@ -351,12 +351,12 @@ window.toggleHoliday = async function(date, currentIsHoliday, btn) {
 };
 
 // ── Mark attendance (base timetable slots) ────────────────────────
-window.markAttendance = async function(timetableId, status, btn) {
+window.markAttendance = async function(timetableId, status, date, btn) {
     try {
         const response = await fetch('/api/attendance/mark', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ timetable_id: timetableId, status: status })
+            body: JSON.stringify({ timetable_id: timetableId, status: status, date: date })
         });
 
         if (response.ok) {
@@ -369,12 +369,12 @@ window.markAttendance = async function(timetableId, status, btn) {
 };
 
 // ── Mark attendance (override slots) ─────────────────────────────
-window.markOverrideAttendance = async function(weekKey, subjectId, startTime, status, btn) {
+window.markOverrideAttendance = async function(weekKey, subjectId, startTime, status, date, btn) {
     try {
         const response = await fetch('/api/attendance/override/mark', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ week_key: weekKey, subject_id: subjectId, start_time: startTime, status: status })
+            body: JSON.stringify({ week_key: weekKey, subject_id: subjectId, start_time: startTime, status: status, date: date })
         });
 
         if (response.ok) {

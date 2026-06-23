@@ -411,7 +411,8 @@ def mark_override_attendance():
     subject_id = data.get('subject_id')
     start_time = data.get('start_time')
     status     = data.get('status')
-    date_str   = datetime.now().strftime("%Y-%m-%d")
+    # Accept explicit date from frontend; fall back to today
+    date_str   = data.get('date') or datetime.now().strftime("%Y-%m-%d")
 
     if not all([week_key, subject_id, start_time, status]):
         return jsonify({"status": "error", "message": "Missing fields"}), 400
@@ -455,7 +456,9 @@ def mark_attendance():
     data = request.json
     timetable_id = data.get('timetable_id')
     status = data.get('status') # 'attended' or 'missed'
-    date = datetime.now().strftime("%Y-%m-%d")
+    # Accept an explicit date from the frontend (for marking past/future days in the week);
+    # fall back to today only if none is provided.
+    date = data.get('date') or datetime.now().strftime("%Y-%m-%d")
     
     db = get_db()
     try:
