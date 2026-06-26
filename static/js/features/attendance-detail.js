@@ -107,7 +107,12 @@ window.switchAttendanceTab = async function(tab, btn) {
             <div id="window-results"></div>
         `;
     } else if (tab === 'calendar') {
-        container.innerHTML = `<p style="color: var(--text-muted);">Calendar heatmap coming soon...</p>`;
+        if (window.loadAttendanceHeatmap) {
+            window.loadAttendanceHeatmap(container);
+        } else {
+            container.innerHTML = '<p style="color:var(--text-muted);">Heatmap module not loaded.</p>';
+        }
+
     }
 };
 

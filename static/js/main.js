@@ -186,6 +186,8 @@ window.clearData = async function(type) {
             if (window.refreshAttendanceSnapshot) window.refreshAttendanceSnapshot();
             if (window.refreshFinanceSnapshot) window.refreshFinanceSnapshot();
             if (window.refreshGoalsSnapshot) window.refreshGoalsSnapshot();
+            // Invalidate heatmap cache so next open re-fetches
+            if (window.invalidateHeatmapCache) window.invalidateHeatmapCache();
         }
     } catch (e) { alert("Error clearing data"); }
 };

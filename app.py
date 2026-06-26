@@ -527,6 +527,111 @@ def get_attendance_window():
             })
     return jsonify({"status": "success", "data": data})
 
+@app.route('/api/attendance/heatmap', methods=['GET'])
+def get_attendance_heatmap():
+    """
+    GET /api/attendance/heatmap?from=YYYY-MM-DD&to=YYYY-MM-DD
+    Returns per-day attendance health for the given date range.
+    Uses resolve_day_schedule so weekly overrides and weekend rules are respected.
+    """
+    from_str = request.args.get('from')
+    to_str   = request.args.get('to')
+
+    today = date_type.today()
+
+    # Parse dates, fallback to last 18 weeks → today
+    try:
+        from_date = date_type.fromisoformat(from_str) if from_str else today - timedelta(weeks=18)
+        to_date   = date_type.fromisoformat(to_str)   if to_str   else today
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid date format"}), 400
+
+    # Cap to_date at today — no future heatmap data
+    if to_date > today:
+        to_date = today
+
+    db = get_db()
+
+    # Build a set of manual holidays for fast lookup
+    holiday_rows = db.execute('SELECT date FROM holidays').fetchall()
+    manual_holidays = {r['date'] for r in holiday_rows}
+
+    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    result = []
+
+    current = from_date
+    while current <= to_date:
+        date_str = current.isoformat()
+        day_name = day_names[current.weekday()]  # 0=Monday … 6=Sunday
+        week_key = get_iso_week_key(
+            datetime.combine(current, datetime.min.time()), day_name
+        )
+
+        # Check manual holiday first
+        if date_str in manual_holidays:
+            result.append({
+                "date": date_str,
+                "status": "holiday",
+                "attended": 0,
+                "total": 0,
+                "percentage": None,
+                "subjects": [],
+                "note": "Holiday"
+            })
+            current += timedelta(days=1)
+            continue
+
+        # Use resolve_day_schedule to get classes (handles overrides + weekend)
+        classes, is_override, is_weekend = resolve_day_schedule(db, day_name, date_str, week_key)
+
+        total    = len(classes)
+        attended = sum(1 for c in classes if c['status'] == 'attended')
+        missed   = sum(1 for c in classes if c['status'] == 'missed')
+        marked   = attended + missed  # only count explicitly-marked classes
+
+        # Build subject detail list
+        subjects = [
+            {"name": c.get('short_name') or c['subject'], "status": c['status']}
+            for c in classes
+        ]
+
+        # Status resolution
+        if total == 0 or is_weekend:
+            day_status = "holiday"
+            percentage = None
+        elif marked == 0:
+            # Classes exist but none marked — future or unmarked day
+            day_status = "no_data"
+            percentage = None
+        elif attended == 0:
+            day_status = "absent"
+            percentage = 0.0
+        else:
+            pct = (attended / marked) * 100
+            percentage = round(pct, 1)
+            if pct == 100:
+                day_status = "full"
+            elif pct >= 75:
+                day_status = "good"
+            elif pct >= 50:
+                day_status = "partial"
+            else:
+                day_status = "low"
+
+        result.append({
+            "date": date_str,
+            "status": day_status,
+            "attended": attended,
+            "total": marked,
+            "percentage": percentage,
+            "subjects": subjects
+        })
+
+        current += timedelta(days=1)
+
+    return jsonify({"status": "success", "data": result})
+
+
 @app.route('/api/attendance/details', methods=['GET'])
 def get_attendance():
     db = get_db()

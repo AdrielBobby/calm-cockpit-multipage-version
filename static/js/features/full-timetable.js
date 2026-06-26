@@ -344,6 +344,7 @@ window.toggleHoliday = async function(date, currentIsHoliday, btn) {
             const modalBody = document.getElementById('modal-body');
             window.loadTimetableModal(modalBody);
             if (window.refreshAttendanceSnapshot) window.refreshAttendanceSnapshot();
+            if (window.invalidateHeatmapCache) window.invalidateHeatmapCache();
         }
     } catch (e) {
         alert("Error toggling holiday");
@@ -362,6 +363,7 @@ window.markAttendance = async function(timetableId, status, date, btn) {
         if (response.ok) {
             _updateAttendanceBtnPair(btn, status);
             if (window.refreshAttendanceSnapshot) window.refreshAttendanceSnapshot();
+            if (window.invalidateHeatmapCache) window.invalidateHeatmapCache();
         }
     } catch (error) {
         alert("Failed to mark attendance");
@@ -380,6 +382,7 @@ window.markOverrideAttendance = async function(weekKey, subjectId, startTime, st
         if (response.ok) {
             _updateAttendanceBtnPair(btn, status);
             if (window.refreshAttendanceSnapshot) window.refreshAttendanceSnapshot();
+            if (window.invalidateHeatmapCache) window.invalidateHeatmapCache();
         }
     } catch (error) {
         alert("Failed to mark attendance");
