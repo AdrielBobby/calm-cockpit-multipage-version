@@ -29,8 +29,8 @@ def index():
     
     # --- 1. Today's Timetable ---
     timetable_rows = db.execute(
-        'SELECT t.start_time, s.short_name as subject '
-        'FROM timetable t JOIN subjects s ON t.subject_id = s.id '
+        'SELECT t.start_time, COALESCE(s.short_name, s.name, "None") as subject '
+        'FROM timetable t LEFT JOIN subjects s ON t.subject_id = s.id '
         'WHERE t.day_of_week = ?', (day_name,)
     ).fetchall()
     
@@ -198,6 +198,9 @@ def resolve_day_schedule(db, day_name, date_str, week_key):
     - Saturday/Sunday with no override → classes=[], is_weekend=True
     - Any day with an override → override rows, is_override=True
     - Any weekday with no override → base timetable rows, is_override=False
+
+    Each class dict contains 'is_none': True when subject_id is NULL (no class held).
+    None slots have counts_for_attendance=False and status='none'.
     """
     is_weekend = day_name in ('Saturday', 'Sunday')
     is_sunday = day_name == 'Sunday'
@@ -206,31 +209,35 @@ def resolve_day_schedule(db, day_name, date_str, week_key):
     if is_sunday:
         return [], False, True
 
-    # Check for a weekly override
+    # Check for a weekly override (LEFT JOIN so None slots are included)
     override_rows = db.execute(
         'SELECT wo.rowid as id, wo.start_time, wo.end_time, wo.subject_id, '
         's.name as subject, s.short_name '
         'FROM weekly_overrides wo '
-        'JOIN subjects s ON wo.subject_id = s.id '
+        'LEFT JOIN subjects s ON wo.subject_id = s.id '
         'WHERE wo.week_key = ? '
         'ORDER BY wo.start_time', (week_key,)
     ).fetchall()
 
     if override_rows:
-        classes = [
-            {
+        classes = []
+        for r in override_rows:
+            is_none = r['subject_id'] is None
+            classes.append({
                 'id': r['id'],
                 'time': r['start_time'],
                 'end_time': r['end_time'],
                 'subject_id': r['subject_id'],
-                'subject': r['subject'],
-                'short_name': r['short_name'],
-                'status': 'unmarked',   # override rows don't store attendance
-            }
-            for r in override_rows
-        ]
-        # Attach real attendance status for each override class slot
+                'subject': r['subject'] if not is_none else 'None',
+                'short_name': r['short_name'] if not is_none else 'NONE',
+                'is_none': is_none,
+                'counts_for_attendance': not is_none,
+                'status': 'none' if is_none else 'unmarked',
+            })
+        # Attach real attendance status for each eligible override slot
         for c in classes:
+            if c['is_none']:
+                continue  # Never look up / write attendance for None slots
             att = db.execute(
                 'SELECT status FROM override_attendance '
                 'WHERE week_key = ? AND subject_id = ? AND start_time = ? AND date = ?',
@@ -244,28 +251,30 @@ def resolve_day_schedule(db, day_name, date_str, week_key):
     if is_weekend:
         return [], False, True
 
-    # Regular weekday — return base timetable rows
+    # Regular weekday — return base timetable rows (LEFT JOIN so None slots survive)
     base_rows = db.execute(
         'SELECT t.id, t.start_time, t.end_time, t.subject_id, '
         's.name as subject, s.short_name, a.status '
         'FROM timetable t '
-        'JOIN subjects s ON t.subject_id = s.id '
+        'LEFT JOIN subjects s ON t.subject_id = s.id '
         'LEFT JOIN attendance a ON t.id = a.timetable_id AND a.date = ? '
         'WHERE t.day_of_week = ? '
         'ORDER BY t.start_time', (date_str, day_name)
     ).fetchall()
-    classes = [
-        {
+    classes = []
+    for r in base_rows:
+        is_none = r['subject_id'] is None
+        classes.append({
             'id': r['id'],
             'time': r['start_time'],
             'end_time': r['end_time'],
             'subject_id': r['subject_id'],
-            'subject': r['subject'],
-            'short_name': r['short_name'],
-            'status': r['status'] or 'unmarked',
-        }
-        for r in base_rows
-    ]
+            'subject': r['subject'] if not is_none else 'None',
+            'short_name': r['short_name'] if not is_none else 'NONE',
+            'is_none': is_none,
+            'counts_for_attendance': not is_none,
+            'status': 'none' if is_none else (r['status'] or 'unmarked'),
+        })
     return classes, False, False
 
 @app.route('/api/timetable/today', methods=['GET'])
@@ -278,8 +287,12 @@ def get_today_timetable():
 
     classes, is_override, is_weekend = resolve_day_schedule(db, day_name, date_str, week_key)
 
-    # Dashboard tile only needs time + short_name
-    data = [{"time": c['time'], "subject": c['short_name'] or c['subject']} for c in classes]
+    # Return all slots including is_none; the compact dashboard tile filters None out client-side.
+    data = [{
+        "time": c['time'],
+        "subject": c['short_name'] or c['subject'],
+        "is_none": c.get('is_none', False)
+    } for c in classes]
     return jsonify({"status": "success", "data": data})
 
 @app.route('/api/timetable/week', methods=['GET'])
@@ -300,20 +313,22 @@ def get_timetable():
     base_rows_all = db.execute(
         'SELECT t.id, t.start_time, t.end_time, t.subject_id, t.day_of_week, '
         's.name as subject, s.short_name '
-        'FROM timetable t JOIN subjects s ON t.subject_id = s.id '
+        'FROM timetable t LEFT JOIN subjects s ON t.subject_id = s.id '
         'ORDER BY t.day_of_week, t.start_time'
     ).fetchall()
     for r in base_rows_all:
         d = r['day_of_week']
         if d not in base_by_day:
             base_by_day[d] = []
+        is_none_base = r['subject_id'] is None
         base_by_day[d].append({
             'id': r['id'],
             'time': r['start_time'],
             'end_time': r['end_time'],
             'subject_id': r['subject_id'],
-            'subject': r['subject'],
-            'short_name': r['short_name'],
+            'subject': r['subject'] if not is_none_base else 'None',
+            'short_name': r['short_name'] if not is_none_base else 'NONE',
+            'is_none': is_none_base,
         })
 
     for i, day in enumerate(days):
@@ -369,10 +384,12 @@ def save_timetable_override():
     # Replace all existing rows for this key
     db.execute('DELETE FROM weekly_overrides WHERE week_key = ?', (week_key,))
     for c in classes:
-        subject_id = c.get('subject_id')
+        # subject_id may be None (meaning "no class this slot") — that is valid.
+        raw_subject_id = c.get('subject_id')
+        subject_id = int(raw_subject_id) if raw_subject_id not in (None, '', 'null') else None
         start_time = c.get('start_time', '').strip()
         end_time   = c.get('end_time', '').strip() or None
-        if not subject_id or not start_time:
+        if not start_time:  # only skip rows with no time
             continue
         db.execute(
             'INSERT INTO weekly_overrides (week_key, subject_id, start_time, end_time) VALUES (?, ?, ?, ?)',
@@ -386,12 +403,17 @@ def get_timetable_override(week_key):
     """Fetch override slots for a given week_key."""
     db = get_db()
     rows = db.execute(
-        'SELECT wo.start_time, wo.end_time, wo.subject_id, s.name as subject, s.short_name '
+        'SELECT wo.start_time, wo.end_time, wo.subject_id, '
+        'CASE WHEN wo.subject_id IS NULL THEN "None" ELSE s.name END as subject, '
+        'CASE WHEN wo.subject_id IS NULL THEN "NONE" ELSE s.short_name END as short_name '
         'FROM weekly_overrides wo '
-        'JOIN subjects s ON wo.subject_id = s.id '
+        'LEFT JOIN subjects s ON wo.subject_id = s.id '
         'WHERE wo.week_key = ? ORDER BY wo.start_time', (week_key,)
     ).fetchall()
-    return jsonify({"status": "success", "data": [dict(r) for r in rows]})
+    return jsonify({"status": "success", "data": [
+        dict(r) | {'is_none': r['subject_id'] is None}
+        for r in rows
+    ]})
 
 @app.route('/api/timetable/override/<path:week_key>', methods=['DELETE'])
 def delete_timetable_override(week_key):
@@ -414,8 +436,12 @@ def mark_override_attendance():
     # Accept explicit date from frontend; fall back to today
     date_str   = data.get('date') or datetime.now().strftime("%Y-%m-%d")
 
-    if not all([week_key, subject_id, start_time, status]):
+    if not all([week_key, start_time, status]):
         return jsonify({"status": "error", "message": "Missing fields"}), 400
+
+    # Reject attendance writes for None slots (no subject_id = no class held)
+    if subject_id is None:
+        return jsonify({"status": "error", "message": "Cannot mark attendance for a None slot"}), 400
 
     db = get_db()
     try:
@@ -459,8 +485,19 @@ def mark_attendance():
     # Accept an explicit date from the frontend (for marking past/future days in the week);
     # fall back to today only if none is provided.
     date = data.get('date') or datetime.now().strftime("%Y-%m-%d")
-    
+
+    if not timetable_id or not status:
+        return jsonify({"status": "error", "message": "Missing fields"}), 400
+
     db = get_db()
+
+    # Reject attendance writes for None slots (timetable rows with no subject)
+    slot = db.execute('SELECT subject_id FROM timetable WHERE id = ?', (timetable_id,)).fetchone()
+    if slot is None:
+        return jsonify({"status": "error", "message": "Timetable slot not found"}), 404
+    if slot['subject_id'] is None:
+        return jsonify({"status": "error", "message": "Cannot mark attendance for a None slot"}), 400
+
     try:
         db.execute(
             'INSERT INTO attendance (date, timetable_id, status) VALUES (?, ?, ?) '
@@ -584,23 +621,34 @@ def get_attendance_heatmap():
         # Use resolve_day_schedule to get classes (handles overrides + weekend)
         classes, is_override, is_weekend = resolve_day_schedule(db, day_name, date_str, week_key)
 
-        total    = len(classes)
-        attended = sum(1 for c in classes if c['status'] == 'attended')
-        missed   = sum(1 for c in classes if c['status'] == 'missed')
+        # Exclude None slots — they never count for attendance
+        eligible = [c for c in classes if not c.get('is_none', False)]
+
+        total    = len(eligible)
+        attended = sum(1 for c in eligible if c['status'] == 'attended')
+        missed   = sum(1 for c in eligible if c['status'] == 'missed')
         marked   = attended + missed  # only count explicitly-marked classes
 
-        # Build subject detail list
+        # Build subject detail list (eligible only — no None slots in heatmap)
         subjects = [
             {"name": c.get('short_name') or c['subject'], "status": c['status']}
-            for c in classes
+            for c in eligible
         ]
 
-        # Status resolution
-        if total == 0 or is_weekend:
-            day_status = "holiday"
+        is_future = current > date_type.today()
+
+        # Deterministic status resolution
+        if is_weekend or total == 0:
+            # Weekend, all-None day, or truly no classes → holiday
+            # Future with no eligible classes → no_data (can't know yet if it's truly holiday)
+            if is_future and total == 0 and not is_weekend:
+                day_status = "no_data"
+            else:
+                day_status = "holiday"
             percentage = None
         elif marked == 0:
-            # Classes exist but none marked — future or unmarked day
+            # Eligible classes exist but none marked yet
+            # Future date: no_data. Past date with nothing marked: no_data (could be unmotivated)
             day_status = "no_data"
             percentage = None
         elif attended == 0:
@@ -1057,6 +1105,64 @@ def update_ese_subject(id):
     db.commit()
     return jsonify({"status": "success"})
 
+def _migrate_weekly_overrides_nullable(db):
+    """
+    Ensure weekly_overrides.subject_id allows NULL (supports 'None' slots).
+    SQLite cannot ALTER a column constraint directly, so if the table already
+    exists with NOT NULL we recreate it using the rename-copy-rename pattern,
+    preserving all existing rows and indexes.
+    """
+    # Check if the table already exists
+    existing = db.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='weekly_overrides'"
+    ).fetchone()
+
+    if existing is None:
+        # Table doesn't exist yet — create it with nullable subject_id from scratch
+        db.execute('''
+            CREATE TABLE weekly_overrides (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                week_key   TEXT NOT NULL,
+                subject_id INTEGER,
+                start_time TEXT NOT NULL,
+                end_time   TEXT
+            )
+        ''')
+        db.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_override_slot
+            ON weekly_overrides (week_key, start_time)
+        ''')
+        return
+
+    # Table exists — check whether subject_id is already nullable
+    create_sql = existing['sql'] or ''
+    if 'subject_id INTEGER NOT NULL' not in create_sql and 'subject_id integer not null' not in create_sql.lower():
+        # Already nullable (or column definition not explicit), nothing to do
+        return
+
+    # Need to migrate: rename old → copy → rename back
+    db.execute('ALTER TABLE weekly_overrides RENAME TO _weekly_overrides_old')
+    db.execute('''
+        CREATE TABLE weekly_overrides (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            week_key   TEXT NOT NULL,
+            subject_id INTEGER,
+            start_time TEXT NOT NULL,
+            end_time   TEXT
+        )
+    ''')
+    db.execute('''
+        INSERT INTO weekly_overrides (id, week_key, subject_id, start_time, end_time)
+        SELECT id, week_key, subject_id, start_time, end_time
+        FROM _weekly_overrides_old
+    ''')
+    db.execute('DROP TABLE _weekly_overrides_old')
+    db.execute('''
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_override_slot
+        ON weekly_overrides (week_key, start_time)
+    ''')
+
+
 def init_db_schema():
     with app.app_context():
         db = get_db()
@@ -1071,20 +1177,11 @@ def init_db_schema():
             )
         ''')
         # Weekly schedule overrides
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS weekly_overrides (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                week_key   TEXT NOT NULL,
-                subject_id INTEGER NOT NULL,
-                start_time TEXT NOT NULL,
-                end_time   TEXT,
-                FOREIGN KEY (subject_id) REFERENCES subjects(id)
-            )
-        ''')
-        db.execute('''
-            CREATE UNIQUE INDEX IF NOT EXISTS ux_override_slot
-            ON weekly_overrides (week_key, start_time)
-        ''')
+        # subject_id is nullable — NULL means "None" (no class held this slot)
+        # Safe migration: check if column allows NULL; if the table was created with NOT NULL,
+        # recreate it preserving existing data.
+        _migrate_weekly_overrides_nullable(db)
+
         # Attendance for override class slots
         db.execute('''
             CREATE TABLE IF NOT EXISTS override_attendance (

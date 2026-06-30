@@ -60,11 +60,13 @@ window.refreshTimetableSnapshot = async function() {
         const response = await fetch('/api/timetable/today');
         const result = await response.json();
         if (result.status === 'success') {
-            if (result.data.length === 0) {
+            // Compact tile: hide None slots (no class held) — full timetable still shows them
+            const slots = result.data.filter(c => !c.is_none);
+            if (slots.length === 0) {
                 container.innerHTML = '<p class="text-muted" style="color: var(--text-muted); font-size: 0.9rem;">No classes today! 🎉</p>';
             } else {
                 let html = '<ul style="list-style: none; padding: 0;">';
-                result.data.forEach(c => {
+                slots.forEach(c => {
                     html += `
                         <li style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px;">
                             <span style="color: var(--text-muted); font-size: 0.9rem;">${c.time}</span> 

@@ -212,9 +212,21 @@ function renderWeeklyTimetable(data, hideControls = false) {
 
         html += `<div style="display: grid; gap: 8px;">`;
         classes.forEach(c => {
+            const isNoneSlot = c.is_none === true;
             const isAttended = c.status === 'attended';
             const isMissed   = c.status === 'missed';
             const isOverrideSlot = isOverride;
+
+            if (isNoneSlot) {
+                // None slot — show as muted "No class" row, no attendance buttons
+                html += `
+                    <div class="timetable-none-slot" style="background: rgba(255,255,255,0.01); border: 1px dashed var(--card-border); padding: 12px; border-radius: 8px; display: flex; align-items: center; opacity: 0.5;">
+                        <span style="color: var(--text-muted); font-size: 0.9rem; margin-right: 12px;">${c.time}</span>
+                        <span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">No class</span>
+                    </div>
+                `;
+                return;
+            }
 
             html += `
                 <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
@@ -575,6 +587,7 @@ function _renderBaseSlotRow(c, subjects) {
                    placeholder="End" style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;">
             <select onchange="updateTimetableEntry(${c.id}, null, null, this.value)"
                     style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 4px; border-radius: 4px; font-size: 0.85rem;">
+                <option value="" ${c.subject_id == null ? 'selected' : ''}>None</option>
                 ${window.subjectsData.map(s => `<option value="${s.id}" ${s.id === c.subject_id ? 'selected' : ''}>${s.name}</option>`).join('')}
             </select>
         </div>`;
@@ -592,7 +605,8 @@ function _renderOverrideSlotRows(classes, subjects, day, overrideKey, isNew) {
 function _renderOverrideSlotRow(c, subjects, day, overrideKey, isNew, idx) {
     const startVal  = c.time || c.start_time || '';
     const endVal    = c.end_time || '';
-    const subjectId = c.subject_id || (window.subjectsData[0] ? window.subjectsData[0].id : '');
+    // subject_id may be null for None slots; use null (not first subject) as default for new rows
+    const subjectId = c.subject_id !== undefined ? c.subject_id : null;
 
     const onchangeAttr = isNew
         ? ''  // collect-then-save: no onchange
@@ -610,6 +624,7 @@ function _renderOverrideSlotRow(c, subjects, day, overrideKey, isNew, idx) {
                    ${onchangeAttr}>
             <select class="ov-subject" style="flex: 1; background: var(--bg-color); border: 1px solid rgba(167,139,250,0.3); color: white; padding: 4px; border-radius: 4px; font-size: 0.85rem;"
                     ${onchangeAttr}>
+                <option value="" ${subjectId == null ? 'selected' : ''}>None</option>
                 ${(window.subjectsData || subjects).map(s => `<option value="${s.id}" ${s.id == subjectId ? 'selected' : ''}>${s.name}</option>`).join('')}
             </select>
             <button onclick="removeOverrideSlot(this, '${overrideKey}', '${day}', ${isNew})"
@@ -686,8 +701,10 @@ async function _collectAndSaveOverride(overrideKey, day) {
     rows.forEach(row => {
         const startTime = row.querySelector('.ov-start')?.value?.trim();
         const endTime   = row.querySelector('.ov-end')?.value?.trim() || null;
-        const subjectId = parseInt(row.querySelector('.ov-subject')?.value);
-        if (startTime && subjectId) {
+        const rawVal    = row.querySelector('.ov-subject')?.value;
+        // Empty string means None slot (no subject selected)
+        const subjectId = rawVal === '' || rawVal == null ? null : parseInt(rawVal);
+        if (startTime) {  // Only skip rows with no time; None subject is valid
             classes.push({ subject_id: subjectId, start_time: startTime, end_time: endTime });
         }
     });
@@ -703,14 +720,18 @@ async function _collectAndSaveOverride(overrideKey, day) {
             // Update local cache
             if (window.timetableData[day]) {
                 window.timetableData[day].is_override = classes.length > 0;
-                window.timetableData[day].classes = classes.map(c => ({
-                    ...c,
-                    time: c.start_time,
-                    subject_id: c.subject_id,
-                    subject: (window.subjectsData.find(s => s.id === c.subject_id) || {}).name || '',
-                    short_name: (window.subjectsData.find(s => s.id === c.subject_id) || {}).short_name || '',
-                    status: 'unmarked',
-                }));
+                window.timetableData[day].classes = classes.map(c => {
+                    const isNone = c.subject_id == null;
+                    return {
+                        ...c,
+                        time: c.start_time,
+                        subject_id: c.subject_id,
+                        subject: isNone ? 'None' : ((window.subjectsData.find(s => s.id === c.subject_id) || {}).name || ''),
+                        short_name: isNone ? 'NONE' : ((window.subjectsData.find(s => s.id === c.subject_id) || {}).short_name || ''),
+                        is_none: isNone,
+                        status: isNone ? 'none' : 'unmarked',
+                    };
+                });
             }
             if (window.refreshTimetableSnapshot) window.refreshTimetableSnapshot();
             return true;
