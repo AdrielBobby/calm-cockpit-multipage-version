@@ -12,6 +12,80 @@
     --transition: 200ms ease;
 }
 
+/* ── Timetable period cards — status colour system ─────────────────
+   All visual appearance is centralised here. Renderers set only:
+     class="period-card"  and  data-status="present|absent|pending|none|ongoing"
+   ─────────────────────────────────────────────────────────────────── */
+.period-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--card-border);
+    background: rgba(255, 255, 255, 0.02);
+    margin-bottom: 12px;
+    transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+/* present — attended, teal tint */
+.period-card[data-status="present"] {
+    background: rgba(6, 214, 160, 0.10);
+    border-color: rgba(6, 214, 160, 0.35);
+}
+
+/* absent — missed, red tint */
+.period-card[data-status="absent"] {
+    background: rgba(239, 68, 68, 0.10);
+    border-color: rgba(239, 68, 68, 0.30);
+}
+
+/* pending — unmarked, neutral (default card look) */
+.period-card[data-status="pending"] {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: var(--card-border);
+}
+
+/* none — no class held, muted dashed */
+.period-card[data-status="none"] {
+    background: rgba(255, 255, 255, 0.01);
+    border-color: rgba(255, 255, 255, 0.04);
+    border-style: dashed;
+    opacity: 0.6;
+}
+
+/* ongoing — currently running class, subtle purple glow */
+.period-card[data-status="ongoing"] {
+    background: rgba(167, 139, 250, 0.08);
+    border-color: rgba(167, 139, 250, 0.40);
+    box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.15);
+}
+
+/* Status badge pill inside period cards */
+.period-status-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+}
+.period-status-badge.badge-present {
+    background: rgba(6, 214, 160, 0.18);
+    color: var(--accent-teal);
+    border: 1px solid rgba(6, 214, 160, 0.30);
+}
+.period-status-badge.badge-absent {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--accent-red);
+    border: 1px solid rgba(239, 68, 68, 0.30);
+}
+.period-status-badge.badge-ongoing {
+    background: rgba(167, 139, 250, 0.15);
+    color: var(--accent-purple);
+    border: 1px solid rgba(167, 139, 250, 0.30);
+}
+
 * {
     box-sizing: border-box;
     margin: 0;

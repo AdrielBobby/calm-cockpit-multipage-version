@@ -28,13 +28,21 @@ def index():
     db = get_db()
     
     # --- 1. Today's Timetable ---
-    timetable_rows = db.execute(
-        'SELECT t.start_time, COALESCE(s.short_name, s.name, "None") as subject '
-        'FROM timetable t LEFT JOIN subjects s ON t.subject_id = s.id '
-        'WHERE t.day_of_week = ?', (day_name,)
-    ).fetchall()
-    
-    today_timetable = [{"time": r['start_time'], "subject": r['subject']} for r in timetable_rows]
+    # Use resolve_day_schedule so we get attendance status per slot for SSR color-coding
+    date_str_today = now.strftime("%Y-%m-%d")
+    week_key_today = get_iso_week_key(now, day_name)
+    classes_today, _, _ = resolve_day_schedule(db, day_name, date_str_today, week_key_today)
+    # Compact tile: filter None slots (no class held) — matches JS tile behaviour
+    today_timetable = [
+        {
+            "time": c['time'],
+            "subject": c['short_name'] or c['subject'],
+            "status": c['status'],    # attended/missed/unmarked/none
+            "is_none": c.get('is_none', False),
+        }
+        for c in classes_today
+        if not c.get('is_none', False)
+    ]
     
     # --- 2. Attendance Snapshot ---
     # Simplified calculation: (attended) / (attended + missed) per subject
@@ -288,10 +296,12 @@ def get_today_timetable():
     classes, is_override, is_weekend = resolve_day_schedule(db, day_name, date_str, week_key)
 
     # Return all slots including is_none; the compact dashboard tile filters None out client-side.
+    # status field included so the tile can colour-code attendance state.
     data = [{
         "time": c['time'],
         "subject": c['short_name'] or c['subject'],
-        "is_none": c.get('is_none', False)
+        "is_none": c.get('is_none', False),
+        "status": c['status'],   # attended / missed / unmarked / none
     } for c in classes]
     return jsonify({"status": "success", "data": data})
 
@@ -969,16 +979,21 @@ def update_grade_subject():
 
 @app.route('/api/grades/internals/update', methods=['POST'])
 def update_internal_mark():
+    """
+    Save the single internal mark for a subject.
+    Always writes to internal_number = 1 (the canonical internal under the new model).
+    The 'internal_number' field is no longer accepted from the client.
+    """
     data = request.json
     db = get_db()
     latest_sem = db.execute('SELECT id FROM semesters ORDER BY id DESC LIMIT 1').fetchone()
     if not latest_sem: return jsonify({"error": "No semester found"}), 400
-    
+
     db.execute('''
         INSERT INTO internal_marks (semester_id, subject_index, internal_number, mark)
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, 1, ?)
         ON CONFLICT(semester_id, subject_index, internal_number) DO UPDATE SET mark=excluded.mark
-    ''', (latest_sem['id'], data.get('subject_index'), data.get('internal_number'), data.get('mark')))
+    ''', (latest_sem['id'], data.get('subject_index'), data.get('mark')))
     db.commit()
     return jsonify({"status": "success"})
 
@@ -1023,27 +1038,46 @@ def clear_grades_internals():
 
 @app.route('/api/grades/internals', methods=['GET'])
 def get_internal_marks():
+    """
+    Return one internal mark per subject for the latest semester.
+
+    Prefer internal_number = 1 (the canonical internal under the new model).
+    If a subject only has an internal_number = 2 row (legacy data from the
+    old two-internal model), fall back to that row rather than returning null.
+    All new writes go to internal_number = 1.
+
+    Response shape:
+        { "data": { "Subject Name": { "mark": 45.0 }, ... } }
+    """
     db = get_db()
-    # Fetch for latest semester (highest id)
     latest_sem = db.execute('SELECT id FROM semesters ORDER BY id DESC LIMIT 1').fetchone()
     if not latest_sem:
-        return jsonify({"status": "success", "data": []})
-    
+        return jsonify({"status": "success", "data": {}})
+
     rows = db.execute('''
         SELECT g.name, i.mark, i.internal_number
         FROM internal_marks i
-        JOIN grade_subject_names g ON i.semester_id = g.semester_id AND i.subject_index = g.subject_index
+        JOIN grade_subject_names g
+            ON i.semester_id = g.semester_id AND i.subject_index = g.subject_index
         WHERE i.semester_id = ?
+        ORDER BY i.internal_number ASC
     ''', (latest_sem['id'],)).fetchall()
-    
-    # Group by subject
-    subjects = {}
+
+    # Build flat dict: prefer internal_number=1; fallback to =2 for legacy subjects
+    # that were saved before the single-internal migration.
+    subjects = {}  # { name: mark }
     for r in rows:
-        if r['name'] not in subjects:
-            subjects[r['name']] = []
-        subjects[r['name']].append({"internal": r['internal_number'], "mark": r['mark']})
-    
-    return jsonify({"status": "success", "data": subjects})
+        name = r['name']
+        if name not in subjects:
+            # First encounter (lowest internal_number first due to ORDER BY)
+            subjects[name] = r['mark']
+        elif r['internal_number'] == 1:
+            # Prefer internal_number=1 if we already inserted a =2 fallback
+            subjects[name] = r['mark']
+
+    return jsonify({"status": "success", "data": {
+        name: {"mark": mark} for name, mark in subjects.items()
+    }})
 
 @app.route('/api/grades/add', methods=['POST'])
 def add_semester():

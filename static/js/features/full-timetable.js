@@ -10,6 +10,17 @@
                Vertical gestures are ignored so scroll isn't disrupted.
    ───────────────────────────────────────────────────────────────── */
 
+// ── Canonical status mapping ──────────────────────────────────────
+// Maps backend attendance status strings → UI state strings used by
+// the CSS .period-card[data-status] system and badge classes.
+// Use this helper everywhere instead of ad-hoc string comparisons.
+function _periodStatus(slot) {
+    if (slot.is_none || slot.status === 'none') return 'none';
+    if (slot.status === 'attended')  return 'present';
+    if (slot.status === 'missed')    return 'absent';
+    return 'pending';  // 'unmarked' or any unknown value
+}
+
 // ── Tab ordering for the arrow-nav cycle ─────────────────────────
 const TT_TABS   = ['week', 'tasks', 'manage'];
 const TT_LABELS = { week: 'Classes', tasks: 'Tasks & Events', manage: 'Manage Timetable' };
@@ -210,40 +221,44 @@ function renderWeeklyTimetable(data, hideControls = false) {
             return;
         }
 
-        html += `<div style="display: grid; gap: 8px;">`;
+        html += `<div style="display: grid; gap: 0;">`;
         classes.forEach(c => {
-            const isNoneSlot = c.is_none === true;
-            const isAttended = c.status === 'attended';
-            const isMissed   = c.status === 'missed';
+            const uiStatus   = _periodStatus(c);
+            const isNoneSlot = uiStatus === 'none';
             const isOverrideSlot = isOverride;
 
             if (isNoneSlot) {
-                // None slot — show as muted "No class" row, no attendance buttons
                 html += `
-                    <div class="timetable-none-slot" style="background: rgba(255,255,255,0.01); border: 1px dashed var(--card-border); padding: 12px; border-radius: 8px; display: flex; align-items: center; opacity: 0.5;">
+                    <div class="period-card" data-status="none" style="margin-bottom:8px;">
                         <span style="color: var(--text-muted); font-size: 0.9rem; margin-right: 12px;">${c.time}</span>
-                        <span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">No class</span>
+                        <span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem; flex:1;">No class</span>
                     </div>
                 `;
                 return;
             }
 
+            // Badge: present/absent only (pending = no badge)
+            const badgeClass = uiStatus === 'present' ? 'badge-present' : uiStatus === 'absent' ? 'badge-absent' : '';
+            const badgeText  = uiStatus === 'present' ? '&#10003; Present' : uiStatus === 'absent' ? '&#10007; Absent' : '';
+            const badge      = badgeClass ? `<span class="period-status-badge ${badgeClass}">${badgeText}</span>` : '';
+
             html += `
-                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span style="color: var(--text-muted); font-size: 0.9rem; margin-right: 12px;">${c.time}</span>
-                        <strong>${c.short_name || c.subject}</strong>
+                <div class="period-card" data-status="${uiStatus}" style="margin-bottom:8px; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+                        <span style="color: var(--text-muted); font-size: 0.9rem; white-space:nowrap;">${c.time}</span>
+                        <strong style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.short_name || c.subject}</strong>
+                        ${badge}
                     </div>
                     ${!hideControls ? `
-                    <div style="display: flex; gap: 8px;">
+                    <div style="display: flex; gap: 8px; flex-shrink:0;">
                         <button
                             onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', ${c.subject_id}, '${c.time}', 'attended', '${date}', this)` : `markAttendance(${c.id}, 'attended', '${date}', this)`}"
-                            style="background: ${isAttended ? 'var(--accent-teal)' : 'transparent'}; border: 1px solid var(--accent-teal); color: ${isAttended ? 'var(--bg-color)' : 'var(--accent-teal)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
+                            style="background: ${uiStatus === 'present' ? 'var(--accent-teal)' : 'transparent'}; border: 1px solid var(--accent-teal); color: ${uiStatus === 'present' ? 'var(--bg-color)' : 'var(--accent-teal)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
                             Present
                         </button>
                         <button
                             onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', ${c.subject_id}, '${c.time}', 'missed', '${date}', this)` : `markAttendance(${c.id}, 'missed', '${date}', this)`}"
-                            style="background: ${isMissed ? 'var(--accent-red)' : 'transparent'}; border: 1px solid var(--accent-red); color: ${isMissed ? 'var(--text-main)' : 'var(--accent-red)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
+                            style="background: ${uiStatus === 'absent' ? 'var(--accent-red)' : 'transparent'}; border: 1px solid var(--accent-red); color: ${uiStatus === 'absent' ? 'var(--text-main)' : 'var(--accent-red)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
                             Absent
                         </button>
                     </div>
@@ -402,8 +417,11 @@ window.markOverrideAttendance = async function(weekKey, subjectId, startTime, st
 };
 
 function _updateAttendanceBtnPair(btn, status) {
-    const parent  = btn.parentElement;
-    const buttons = parent.querySelectorAll('button');
+    const newUiStatus = status === 'attended' ? 'present' : 'absent';
+
+    // 1. Update the two attendance buttons in the button container
+    const btnContainer = btn.parentElement;
+    const buttons = btnContainer.querySelectorAll('button');
     buttons.forEach(b => {
         const isPresentBtn     = b.textContent.trim() === 'Present';
         const isMarkingPresent = status === 'attended';
@@ -415,6 +433,27 @@ function _updateAttendanceBtnPair(btn, status) {
             b.style.color      = !isMarkingPresent ? 'var(--text-main)'   : 'var(--accent-red)';
         }
     });
+
+    // 2. Flip the parent .period-card data-status so CSS transitions fire
+    const card = btn.closest('.period-card');
+    if (card) {
+        card.dataset.status = newUiStatus;
+        // Update the status badge text and class
+        const badge = card.querySelector('.period-status-badge');
+        if (badge) {
+            badge.className = `period-status-badge badge-${newUiStatus}`;
+            badge.innerHTML = newUiStatus === 'present' ? '&#10003; Present' : '&#10007; Absent';
+        } else {
+            // Badge didn't exist yet (was pending) — insert one
+            const subjectEl = card.querySelector('strong');
+            if (subjectEl) {
+                const newBadge = document.createElement('span');
+                newBadge.className = `period-status-badge badge-${newUiStatus}`;
+                newBadge.innerHTML = newUiStatus === 'present' ? '&#10003; Present' : '&#10007; Absent';
+                subjectEl.insertAdjacentElement('afterend', newBadge);
+            }
+        }
+    }
 }
 
 // Expose nav function globally (called from onclick attributes in nav row)

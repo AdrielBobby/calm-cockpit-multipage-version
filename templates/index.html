@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=11">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
 </head>
 <body>
 
@@ -39,9 +39,21 @@
                 {% if timetable %}
                     <ul style="list-style: none; padding: 0;">
                     {% for class in timetable %}
-                        <li style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px;">
+                        {% if class.status == 'attended' %}
+                            {% set ui_status = 'present' %}
+                        {% elif class.status == 'missed' %}
+                            {% set ui_status = 'absent' %}
+                        {% else %}
+                            {% set ui_status = 'pending' %}
+                        {% endif %}
+                        <li class="period-card" data-status="{{ ui_status }}">
                             <span style="color: var(--text-muted); font-size: 0.9rem;">{{ class.time }}</span>
-                            <strong style="text-align: right;">{{ class.subject }}</strong>
+                            <strong style="flex:1; text-align: right; margin: 0 8px;">{{ class.subject }}</strong>
+                            {% if ui_status == 'present' %}
+                                <span class="period-status-badge badge-present">&#10003; Present</span>
+                            {% elif ui_status == 'absent' %}
+                                <span class="period-status-badge badge-absent">&#10007; Absent</span>
+                            {% endif %}
                         </li>
                     {% endfor %}
                     </ul>
@@ -225,14 +237,14 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/attendance-heatmap.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/grades-ese.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=11"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=12"></script>
+    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=12"></script>
+    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=12"></script>
+    <script src="{{ url_for('static', filename='js/features/attendance-heatmap.js') }}?v=12"></script>
+    <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=12"></script>
+    <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=12"></script>
+    <script src="{{ url_for('static', filename='js/features/grades-ese.js') }}?v=12"></script>
+    <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=12"></script>
     <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=11"></script>
     <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=11"></script>
     <script src="{{ url_for('static', filename='js/modals.js') }}?v=11"></script>

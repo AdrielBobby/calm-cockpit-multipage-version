@@ -131,8 +131,13 @@ window.renderInternalsTab = async function(container) {
             fetch('/api/grades/subjects'),
             fetch('/api/grades/internals')
         ]);
-        const subjResult = await subjResp.json();
+        const subjResult  = await subjResp.json();
         const marksResult = await marksResp.json();
+
+        // marksResult.data is now a flat dict: { "SubjectName": { "mark": 45.0 } }
+        // Legacy internal_number=2 records are surfaced here if no =1 row exists
+        // (handled by the backend prefer-1-fallback-2 logic).
+        const marksMap = marksResult.data || {};
 
         let html = `
             <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -146,32 +151,46 @@ window.renderInternalsTab = async function(container) {
                 </div>
 
                 <div style="background: rgba(255,255,255,0.02); padding: 24px; border-radius: 12px; border: 1px solid var(--card-border);">
-                    <h3 style="margin-bottom: 20px;">Internal Marks Breakdown</h3>
+                    <h3 style="margin-bottom: 4px;">Internal Marks Breakdown</h3>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 20px;">
+                        One internal exam. Changes are saved automatically on blur.
+                    </p>
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 1px solid var(--card-border); color: var(--text-muted);">
                                 <th style="padding: 12px 8px;">Subject</th>
-                                <th style="padding: 12px 8px;">Internal 1</th>
-                                <th style="padding: 12px 8px;">Internal 2</th>
+                                <th style="padding: 12px 8px;">Internal Marks</th>
                             </tr>
                         </thead>
                         <tbody>
         `;
-        subjResult.data.forEach(subj => {
-            const subjectMarks = marksResult.data[subj.name] || [];
-            const i1 = subjectMarks.find(m => m.internal === 1)?.mark || 0;
-            const i2 = subjectMarks.find(m => m.internal === 2)?.mark || 0;
-            html += `
-                <tr style="border-bottom: 1px solid var(--card-border);">
-                    <td style="padding: 12px 8px; font-weight: 600;">
-                        <input type="text" value="${subj.name}" onchange="updateGradeSubjectName(${subj.subject_index}, this.value)" style="width: 100%; background: transparent; border: 1px solid transparent; color: var(--text-main); font-weight: 600; padding: 4px;">
-                    </td>
-                    <td style="padding: 12px 8px;"><input type="number" value="${i1}" onchange="updateInternalMark(${subj.subject_index}, 1, this.value)" style="width: 60px; background: transparent; border: 1px solid transparent; color: var(--accent-teal); font-weight: bold; padding: 4px;"></td>
-                    <td style="padding: 12px 8px;"><input type="number" value="${i2}" onchange="updateInternalMark(${subj.subject_index}, 2, this.value)" style="width: 60px; background: transparent; border: 1px solid transparent; color: var(--accent-teal); font-weight: bold; padding: 4px;"></td>
-                </tr>
-            `;
-        });
-        html += `</tbody></table><p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 12px;">* Changes are saved automatically when you change the value.</p></div></div>`;
+
+        if (!subjResult.data || subjResult.data.length === 0) {
+            html += `<tr><td colspan="2" style="padding: 16px 8px; color: var(--text-muted); font-style: italic;">No subjects added yet.</td></tr>`;
+        } else {
+            subjResult.data.forEach(subj => {
+                const entry = marksMap[subj.name] || {};
+                const mark  = entry.mark !== undefined && entry.mark !== null ? entry.mark : '';
+                html += `
+                    <tr style="border-bottom: 1px solid var(--card-border);">
+                        <td style="padding: 12px 8px; font-weight: 600;">
+                            <input type="text" value="${subj.name}"
+                                   onchange="updateGradeSubjectName(${subj.subject_index}, this.value)"
+                                   style="width: 100%; background: transparent; border: 1px solid transparent; color: var(--text-main); font-weight: 600; padding: 4px;">
+                        </td>
+                        <td style="padding: 12px 8px;">
+                            <input type="number" value="${mark}"
+                                   onchange="updateInternalMark(${subj.subject_index}, this.value)"
+                                   placeholder="—"
+                                   min="0" max="100" step="0.5"
+                                   style="width: 70px; background: transparent; border: 1px solid transparent; color: var(--accent-teal); font-weight: bold; padding: 4px;">
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        html += `</tbody></table></div></div>`;
         container.innerHTML = html;
         _renderArrowNav(container);
     } catch (e) {
@@ -423,12 +442,17 @@ window.updateGradeSubjectName = async function(subjIdx, name) {
     } catch (e) { console.error("Failed to update subject name"); }
 };
 
-window.updateInternalMark = async function(subjIdx, intNum, mark) {
+window.updateInternalMark = async function(subjIdx, mark) {
+    /**
+     * Save the single internal mark for a subject.
+     * Always writes to internal_number = 1 (canonical under the new model).
+     * The backend also hardcodes internal_number = 1 as a safety net.
+     */
     try {
         await fetch('/api/grades/internals/update', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ subject_index: subjIdx, internal_number: intNum, mark: parseFloat(mark) })
+            body: JSON.stringify({ subject_index: subjIdx, mark: parseFloat(mark) })
         });
     } catch (e) { console.error("Failed to update mark"); }
 };

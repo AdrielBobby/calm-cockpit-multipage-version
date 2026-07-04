@@ -53,6 +53,17 @@ window.initSwipe = function(targetEl, onSwipeLeft, onSwipeRight) {
 };
 
 // Global Refresh Functions
+
+// Compact status helper for the today tile.
+// Mirrors _periodStatus() in full-timetable.js — kept local so main.js
+// has no hard dependency on load order.
+function _tileStatus(slot) {
+    if (slot.is_none || slot.status === 'none') return 'none';
+    if (slot.status === 'attended') return 'present';
+    if (slot.status === 'missed')   return 'absent';
+    return 'pending';
+}
+
 window.refreshTimetableSnapshot = async function() {
     const container = document.getElementById('tt-tile-content');
     if (!container) return;
@@ -67,10 +78,17 @@ window.refreshTimetableSnapshot = async function() {
             } else {
                 let html = '<ul style="list-style: none; padding: 0;">';
                 slots.forEach(c => {
+                    const uiStatus  = _tileStatus(c);
+                    const badgeHTML = uiStatus === 'present'
+                        ? `<span class="period-status-badge badge-present">&#10003; Present</span>`
+                        : uiStatus === 'absent'
+                            ? `<span class="period-status-badge badge-absent">&#10007; Absent</span>`
+                            : '';
                     html += `
-                        <li style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 12px; border-radius: 8px;">
-                            <span style="color: var(--text-muted); font-size: 0.9rem;">${c.time}</span> 
-                            <strong style="text-align: right;">${c.subject}</strong>
+                        <li class="period-card" data-status="${uiStatus}">
+                            <span style="color: var(--text-muted); font-size: 0.9rem;">${c.time}</span>
+                            <strong style="flex:1; text-align: right; margin: 0 8px;">${c.subject}</strong>
+                            ${badgeHTML}
                         </li>
                     `;
                 });
