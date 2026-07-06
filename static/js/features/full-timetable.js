@@ -237,10 +237,12 @@ function renderWeeklyTimetable(data, hideControls = false) {
                 return;
             }
 
-            // Badge: present/absent only (pending = no badge)
+            // Badge: only shown in read-only/compact mode (hideControls=true).
+            // In the full interactive view the Present/Absent buttons communicate state,
+            // so the chip would be redundant and is intentionally omitted.
             const badgeClass = uiStatus === 'present' ? 'badge-present' : uiStatus === 'absent' ? 'badge-absent' : '';
             const badgeText  = uiStatus === 'present' ? '&#10003; Present' : uiStatus === 'absent' ? '&#10007; Absent' : '';
-            const badge      = badgeClass ? `<span class="period-status-badge ${badgeClass}">${badgeText}</span>` : '';
+            const badge      = (hideControls && badgeClass) ? `<span class="period-status-badge ${badgeClass}">${badgeText}</span>` : '';
 
             html += `
                 <div class="period-card" data-status="${uiStatus}" style="margin-bottom:8px; gap:10px;">
@@ -438,21 +440,15 @@ function _updateAttendanceBtnPair(btn, status) {
     const card = btn.closest('.period-card');
     if (card) {
         card.dataset.status = newUiStatus;
-        // Update the status badge text and class
+        // Update the status badge text and class — only if a badge is present in the DOM.
+        // In the full interactive view badges are intentionally omitted, so we never inject one.
         const badge = card.querySelector('.period-status-badge');
         if (badge) {
             badge.className = `period-status-badge badge-${newUiStatus}`;
             badge.innerHTML = newUiStatus === 'present' ? '&#10003; Present' : '&#10007; Absent';
-        } else {
-            // Badge didn't exist yet (was pending) — insert one
-            const subjectEl = card.querySelector('strong');
-            if (subjectEl) {
-                const newBadge = document.createElement('span');
-                newBadge.className = `period-status-badge badge-${newUiStatus}`;
-                newBadge.innerHTML = newUiStatus === 'present' ? '&#10003; Present' : '&#10007; Absent';
-                subjectEl.insertAdjacentElement('afterend', newBadge);
-            }
         }
+        // No else: compact/read-only views already have a badge rendered server-side;
+        //          interactive views deliberately show no chip (buttons convey state instead).
     }
 }
 
