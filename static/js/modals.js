@@ -115,4 +115,38 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal();
         }
     });
+
+    // ── Tile → Project detail shortcut ───────────────────────────────
+    // Called by project tile cards to open the modal directly into the
+    // detail view for a given project id, skipping the list view.
+    // Uses the same modal + renderProjectDetail infrastructure.
+    window.openProjectFromTile = function(id) {
+        // Open the modal overlay and set the title
+        modalOverlay.classList.add('active');
+        document.querySelector('.modal-content').classList.remove('compact-modal');
+        modalTitle.textContent = 'Projects Log';
+
+        // Populate the body — fetch project list first if not cached,
+        // then jump straight into the detail view.
+        if (window.projectsListData && window.projectsListData.find(p => p.id === id)) {
+            window.renderProjectDetail(id);
+        } else {
+            // Data not cached yet — load the full list first (which caches it),
+            // then replace the list render with the detail view.
+            modalBody.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:24px;">Loading…</p>';
+            fetch('/api/projects-data')
+                .then(r => r.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        window.projectsListData = result.data;
+                        window.renderProjectDetail(id);
+                    } else {
+                        if (window.loadProjectsModal) window.loadProjectsModal(modalBody);
+                    }
+                })
+                .catch(() => {
+                    if (window.loadProjectsModal) window.loadProjectsModal(modalBody);
+                });
+        }
+    };
 });

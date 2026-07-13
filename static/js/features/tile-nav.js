@@ -177,4 +177,199 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // ── Projects Tile ────────────────────────────────────────────────
+    let projTileIdx = 0;
+    const projTileMax = 1; // 0 = In Progress, 1 = Paused
+    let projTileData = null; // cached from /api/projects/tile-data
+
+    // ── Data helpers ─────────────────────────────────────────────────
+    // Filter + sort by last_updated DESC so ordering is always explicit,
+    // independent of whatever the backend query order happens to be.
+    function _projForView(view) {
+        if (!projTileData) return [];
+        return projTileData
+            .filter(p => p.status === view)
+            .sort((a, b) => new Date(b.last_updated) - new Date(a.last_updated));
+    }
+
+    // Latest log preview — the server already shapes it; just use directly.
+    // Client-side safety truncation as a fallback (≤90 chars visible).
+    function _projLogPreview(proj) {
+        const raw = proj.latest_log_preview;
+        if (!raw) return null;
+        return raw.length > 90 ? raw.slice(0, 87) + '…' : raw;
+    }
+
+    // ── Render: In Progress view ──────────────────────────────────────
+    function _renderProjInProgress(content, projects) {
+        if (projects.length === 0) {
+            content.innerHTML = `
+                <p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:20px 0;">
+                    No projects in progress
+                </p>`;
+            return;
+        }
+
+        const MAX_VISIBLE = 3;
+        const shown = projects.slice(0, MAX_VISIBLE);
+        const overflow = projects.length - MAX_VISIBLE;
+
+        let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+        shown.forEach(proj => {
+            const preview = _projLogPreview(proj);
+            html += `
+                <div class="proj-tile-card proj-tile-card--inprogress"
+                     onclick="window.openProjectFromTile && window.openProjectFromTile(${proj.id})"
+                     role="button" tabindex="0"
+                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile(${proj.id})"
+                     onmouseenter="this.style.borderColor='rgba(6,214,160,0.4)'; this.style.background='rgba(6,214,160,0.06)';"
+                     onmouseleave="this.style.borderColor='rgba(6,214,160,0.18)'; this.style.background='rgba(255,255,255,0.02)';">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                        <span style="font-weight:500; font-size:0.9rem; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${proj.name}</span>
+                        <span style="flex-shrink:0; font-size:0.65rem; padding:2px 7px; border-radius:10px;
+                                     background:rgba(6,214,160,0.12); color:var(--accent-teal);
+                                     border:1px solid rgba(6,214,160,0.25); white-space:nowrap; font-weight:600; text-transform:uppercase; letter-spacing:0.03em;">
+                            In Progress
+                        </span>
+                    </div>
+                    <div class="proj-tile-log-preview">
+                        ${preview
+                            ? `<span style="color:var(--text-muted);">Latest:</span> ${preview}`
+                            : `<span style="color:var(--text-muted); font-style:italic;">No recent update</span>`
+                        }
+                    </div>
+                </div>`;
+        });
+
+        if (overflow > 0) {
+            html += `<p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin:2px 0 0;">+${overflow} more — open modal to view all</p>`;
+        }
+
+        html += '</div>';
+        content.innerHTML = html;
+    }
+
+    // ── Render: Paused view ───────────────────────────────────────────
+    function _renderProjPaused(content, projects) {
+        if (projects.length === 0) {
+            content.innerHTML = `
+                <p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:20px 0;">
+                    No paused projects
+                </p>`;
+            return;
+        }
+
+        const MAX_VISIBLE = 3;
+        const shown = projects.slice(0, MAX_VISIBLE);
+        const overflow = projects.length - MAX_VISIBLE;
+
+        let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+        shown.forEach(proj => {
+            html += `
+                <div class="proj-tile-card proj-tile-card--paused"
+                     onclick="window.openProjectFromTile && window.openProjectFromTile(${proj.id})"
+                     role="button" tabindex="0"
+                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile(${proj.id})"
+                     onmouseenter="this.style.borderColor='rgba(245,158,11,0.4)'; this.style.background='rgba(245,158,11,0.06)';"
+                     onmouseleave="this.style.borderColor='rgba(245,158,11,0.18)'; this.style.background='rgba(255,255,255,0.015)';">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                        <span style="font-weight:500; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${proj.name}</span>
+                        <span style="flex-shrink:0; font-size:0.65rem; padding:2px 7px; border-radius:10px;
+                                     background:rgba(245,158,11,0.12); color:var(--accent-yellow);
+                                     border:1px solid rgba(245,158,11,0.25); white-space:nowrap; font-weight:600; text-transform:uppercase; letter-spacing:0.03em;">
+                            Paused
+                        </span>
+                    </div>
+                </div>`;
+        });
+
+        if (overflow > 0) {
+            html += `<p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin:2px 0 0;">+${overflow} more — open modal to view all</p>`;
+        }
+
+        html += '</div>';
+        content.innerHTML = html;
+    }
+
+    // ── Fetch tile data (caches in projTileData) ──────────────────────
+    async function _fetchProjTileData() {
+        const resp = await fetch('/api/projects/tile-data');
+        const result = await resp.json();
+        if (result.status !== 'success') throw new Error(result.message || 'Failed to load projects');
+        projTileData = result.data;
+    }
+
+    // ── Render current view from cache ────────────────────────────────
+    function _renderProjCurrentView() {
+        const content = document.getElementById('projects-snapshot-container');
+        if (!content) return;
+        if (projTileIdx === 0) {
+            _renderProjInProgress(content, _projForView('in_progress'));
+        } else {
+            _renderProjPaused(content, _projForView('paused'));
+        }
+    }
+
+    // ── Nav function (globally exposed, clamped, matches tt/grades pattern) ──
+    window.projTileNav = async function(dir) {
+        projTileIdx += dir;
+        if (projTileIdx < 0) projTileIdx = 0;
+        if (projTileIdx > projTileMax) projTileIdx = projTileMax;
+
+        const prevBtn  = document.getElementById('proj-tile-prev');
+        const nextBtn  = document.getElementById('proj-tile-next');
+        const labelEl  = document.getElementById('proj-tile-label');
+        const content  = document.getElementById('projects-snapshot-container');
+
+        if (prevBtn) prevBtn.disabled = (projTileIdx === 0);
+        if (nextBtn) nextBtn.disabled = (projTileIdx === projTileMax);
+        if (labelEl) labelEl.textContent = projTileIdx === 0 ? 'Projects (In Progress)' : 'Projects (Paused)';
+
+        // Render from cache if available, otherwise fetch first
+        if (projTileData) {
+            _renderProjCurrentView();
+        } else {
+            if (content) content.innerHTML = '<p class="proj-tile-loading">Loading projects…</p>';
+            try {
+                await _fetchProjTileData();
+                _renderProjCurrentView();
+            } catch (e) {
+                if (content) content.innerHTML = '<p style="color:var(--accent-red); font-size:0.82rem; text-align:center;">Error loading projects.</p>';
+            }
+        }
+    };
+
+    // ── Refresh: called after any modal mutation (add/delete/status change) ──
+    window.refreshProjectsSnapshot = async function() {
+        projTileData = null; // invalidate cache
+        const content = document.getElementById('projects-snapshot-container');
+        if (!content) return;
+        try {
+            await _fetchProjTileData();
+            _renderProjCurrentView();
+        } catch (e) {
+            console.error('refreshProjectsSnapshot error:', e);
+        }
+    };
+
+    // ── Swipe registration ────────────────────────────────────────────
+    const projTileContent = document.getElementById('projects-snapshot-container');
+    if (projTileContent) {
+        // swipe left = next view (in_progress → paused), swipe right = prev
+        initTileSwipe(projTileContent, () => window.projTileNav(1), () => window.projTileNav(-1));
+    }
+
+    // ── Initial load ──────────────────────────────────────────────────
+    // Fetch data and render In Progress view on page load.
+    (async () => {
+        try {
+            await _fetchProjTileData();
+            _renderProjCurrentView();
+            // Sync next button: disable if only 0 or 1 view has data (still show, just visual)
+        } catch (e) {
+            const c = document.getElementById('projects-snapshot-container');
+            if (c) c.innerHTML = '<p style="color:var(--accent-red); font-size:0.82rem; text-align:center;">Error loading projects.</p>';
+        }
+    })();
+
 });

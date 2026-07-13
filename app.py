@@ -891,6 +891,52 @@ def get_projects_data():
         print(f"DEBUG Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/projects/tile-data', methods=['GET'])
+def get_projects_tile_data():
+    """
+    Returns all projects with their latest log pre-joined for the dashboard tile.
+    Uses a single correlated sub-query (no N+1).  The client receives:
+      id, name, status, last_updated,
+      latest_log_preview  – server-truncated to 100 chars (or null),
+      latest_log_at       – ISO timestamp of the latest log (or null)
+    """
+    try:
+        db = get_db()
+        rows = db.execute('''
+            SELECT
+                p.id,
+                p.name,
+                p.status,
+                p.last_updated,
+                pl.note       AS latest_log_note,
+                pl.date       AS latest_log_at
+            FROM projects p
+            LEFT JOIN project_logs pl
+              ON pl.id = (
+                  SELECT id FROM project_logs
+                  WHERE project_id = p.id
+                  ORDER BY date DESC
+                  LIMIT 1
+              )
+            ORDER BY p.last_updated DESC
+        ''').fetchall()
+
+        data = []
+        for r in rows:
+            row = dict(r)
+            note = row.pop('latest_log_note', None)
+            # Shape a clean preview string server-side (max 100 chars)
+            if note:
+                preview = ' '.join(note.split())  # collapse whitespace
+                row['latest_log_preview'] = preview[:100] + ('…' if len(preview) > 100 else '')
+            else:
+                row['latest_log_preview'] = None
+            data.append(row)
+
+        return jsonify({"status": "success", "data": data})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/calendar/event/<int:id>/update', methods=['POST'])
 def update_calendar_event(id):
     data = request.json

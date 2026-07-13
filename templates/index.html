@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=13">
 </head>
 <body>
 
@@ -163,20 +163,13 @@
 
         <div class="tile tile-4-col" id="tile-projects">
             <div class="tile-header">
-                <h2>Projects (In Progress)</h2>
+                <button class="tile-nav-btn" id="proj-tile-prev" onclick="projTileNav(-1)" aria-label="Previous view" disabled>&#8249;</button>
+                <h2 class="tile-title" id="proj-tile-label">Projects (In Progress)</h2>
+                <button class="tile-nav-btn" id="proj-tile-next" onclick="projTileNav(1)" aria-label="Next view">&#8250;</button>
                 <button class="btn-action" data-modal="modal-projects">...</button>
             </div>
-            <div class="tile-content" id="projects-snapshot-container">
-                {% if projects %}
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                    {% for project in projects %}
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 500;">{{ project.name }}</span>
-                            <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 12px; background: rgba(167, 139, 250, 0.1); color: var(--accent-purple); border: 1px solid rgba(167, 139, 250, 0.2);">{{ project.status }}</span>
-                        </div>
-                    {% endfor %}
-                    </div>
-                {% endif %}
+            <div class="tile-content proj-tile-content" id="projects-snapshot-container">
+                <p class="proj-tile-loading">Loading projects…</p>
             </div>
         </div>
 
@@ -246,7 +239,7 @@
     <script src="{{ url_for('static', filename='js/features/grades-ese.js') }}?v=12"></script>
     <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=12"></script>
     <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/modals.js') }}?v=11"></script>
+    <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=13"></script>
+    <script src="{{ url_for('static', filename='js/modals.js') }}?v=13"></script>
 </body>
 </html>
