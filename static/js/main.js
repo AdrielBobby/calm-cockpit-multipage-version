@@ -71,6 +71,15 @@ window.refreshTimetableSnapshot = async function() {
         const response = await fetch('/api/timetable/today');
         const result = await response.json();
         if (result.status === 'success') {
+            // Holiday takes priority — show closed state, no period rows
+            if (result.is_holiday) {
+                container.innerHTML = `
+                    <div class="tt-holiday-state">
+                        <span class="tt-holiday-icon">🏖️</span>
+                        <p>Closed for holiday</p>
+                    </div>`;
+                return;
+            }
             // Compact tile: hide None slots (no class held) — full timetable still shows them
             const slots = result.data.filter(c => !c.is_none);
             if (slots.length === 0) {

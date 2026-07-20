@@ -31,6 +31,7 @@ def index():
     # Use resolve_day_schedule so we get attendance status per slot for SSR color-coding
     date_str_today = now.strftime("%Y-%m-%d")
     week_key_today = get_iso_week_key(now, day_name)
+    is_holiday_today = is_date_holiday(db, date_str_today)
     classes_today, _, _ = resolve_day_schedule(db, day_name, date_str_today, week_key_today)
     # Compact tile: filter None slots (no class held) — matches JS tile behaviour
     today_timetable = [
@@ -147,6 +148,7 @@ def index():
     return render_template('index.html', 
                            date=now.strftime("%B %d, %Y"), 
                            day=day_name,
+                           is_holiday_today=is_holiday_today,
                            timetable=today_timetable,
                            attendance=attendance_snapshot,
                            grades=grades_data,
@@ -177,6 +179,10 @@ def get_iso_week_key(dt, day_name):
     """Return a stable key like '2026-W25-Monday' for a given date and day name."""
     iso_year, iso_week, _ = dt.isocalendar()
     return f"{iso_year}-W{iso_week:02d}-{day_name}"
+
+def is_date_holiday(db, date_str):
+    """Return True if date_str (YYYY-MM-DD) is recorded in the holidays table."""
+    return db.execute('SELECT 1 FROM holidays WHERE date = ?', (date_str,)).fetchone() is not None
 
 def cleanup_old_overrides(db):
     """Delete weekly_override rows whose week is more than 4 ISO weeks in the past."""
@@ -293,6 +299,11 @@ def get_today_timetable():
     week_key = get_iso_week_key(now, day_name)
     db = get_db()
 
+    # Holiday check must come before resolve_day_schedule so a holiday day
+    # always returns an empty class list regardless of overrides.
+    if is_date_holiday(db, date_str):
+        return jsonify({"status": "success", "is_holiday": True, "date": date_str, "data": []})
+
     classes, is_override, is_weekend = resolve_day_schedule(db, day_name, date_str, week_key)
 
     # Return all slots including is_none; the compact dashboard tile filters None out client-side.
@@ -303,7 +314,7 @@ def get_today_timetable():
         "is_none": c.get('is_none', False),
         "status": c['status'],   # attended / missed / unmarked / none
     } for c in classes]
-    return jsonify({"status": "success", "data": data})
+    return jsonify({"status": "success", "is_holiday": False, "date": date_str, "data": data})
 
 @app.route('/api/timetable/week', methods=['GET'])
 def get_timetable():
@@ -347,7 +358,7 @@ def get_timetable():
         week_key = get_iso_week_key(current_date, day)
 
         # Check if this date is a manual holiday
-        is_holiday = db.execute('SELECT 1 FROM holidays WHERE date = ?', (date_str,)).fetchone() is not None
+        is_holiday = is_date_holiday(db, date_str)
 
         classes, is_override, is_weekend = resolve_day_schedule(db, day, date_str, week_key)
 

@@ -86,6 +86,30 @@
     border: 1px solid rgba(167, 139, 250, 0.30);
 }
 
+/* ── Holiday empty state — compact timetable tile ────────────────── */
+.tt-holiday-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 80px;
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.tt-holiday-state .tt-holiday-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.tt-holiday-state p {
+    margin: 0;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;

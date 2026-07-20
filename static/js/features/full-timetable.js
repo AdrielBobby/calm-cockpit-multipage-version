@@ -373,7 +373,8 @@ window.toggleHoliday = async function(date, currentIsHoliday, btn) {
             const modalBody = document.getElementById('modal-body');
             window.loadTimetableModal(modalBody);
             if (window.refreshAttendanceSnapshot) window.refreshAttendanceSnapshot();
-            if (window.invalidateHeatmapCache) window.invalidateHeatmapCache();
+            if (window.invalidateHeatmapCache)   window.invalidateHeatmapCache();
+            if (window.refreshTimetableSnapshot) window.refreshTimetableSnapshot();
         }
     } catch (e) {
         alert("Error toggling holiday");

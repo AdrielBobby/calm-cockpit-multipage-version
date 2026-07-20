@@ -36,7 +36,12 @@
                 <button class="btn-action" data-modal="modal-timetable">...</button>
             </div>
             <div class="tile-content" id="tt-tile-content">
-                {% if timetable %}
+                {% if is_holiday_today %}
+                    <div class="tt-holiday-state">
+                        <span class="tt-holiday-icon">🏖️</span>
+                        <p>Closed for holiday</p>
+                    </div>
+                {% elif timetable %}
                     <ul style="list-style: none; padding: 0;">
                     {% for class in timetable %}
                         {% if class.status == 'attended' %}
