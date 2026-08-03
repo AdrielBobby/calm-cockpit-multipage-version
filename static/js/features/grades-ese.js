@@ -141,17 +141,19 @@ window.renderInternalsTab = async function(container) {
 
         let html = `
             <div style="display: flex; flex-direction: column; gap: 24px;">
-                <div style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border); display: flex; gap: 12px; align-items: flex-end;">
-                    <div style="flex: 1;">
+                <div style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border); display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                    <div style="flex: 1 1 200px;">
                         <label style="display:block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">New Subject Name</label>
                         <input type="text" id="new-subj-name" placeholder="e.g. Operating Systems" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 8px; border-radius: 6px;">
                     </div>
-                    <button onclick="addGradeSubject()" style="background: var(--accent-teal); color: var(--bg-color); border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Add Subject</button>
-                    <button onclick="clearData('grades-internals')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 10px; border-radius: 8px; cursor: pointer;">Clear All</button>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <button onclick="addGradeSubject()" style="background: var(--accent-teal); color: var(--bg-color); border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap;">Add Subject</button>
+                        <button onclick="clearData('grades-internals')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 10px; border-radius: 8px; cursor: pointer; white-space: nowrap;">Clear All</button>
+                    </div>
                 </div>
 
-                <div style="background: rgba(255,255,255,0.02); padding: 24px; border-radius: 12px; border: 1px solid var(--card-border);">
-                    <h3 style="margin-bottom: 4px;">Internal Marks Breakdown</h3>
+                <div style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
+                    <h3 style="margin-bottom: 4px; font-size: 1.1rem;">Internal Marks Breakdown</h3>
                     <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 20px;">
                         One internal exam. Changes are saved automatically on blur.
                     </p>
@@ -202,7 +204,7 @@ window.renderInternalsTab = async function(container) {
 window.renderEseTab = function(container) {
     container.innerHTML = `
         <div class="ese-quick-view">
-            <h3>ESE Requirement Calculator</h3>
+            <h3 style="font-size: 1.1rem;">ESE Requirement Calculator</h3>
             <div class="ese-input-grid">
                 <input type="text" id="eseSubjectName" placeholder="Subject Name">
                 <input type="number" id="eseCurrentMarks" placeholder="Current Marks">

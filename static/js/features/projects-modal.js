@@ -178,6 +178,17 @@ window.renderProjectDetail = async function(id) {
     _loadDetailLogs(proj.id);
     // Store the currently open detail project id
     window._openDetailProjectId = id;
+
+    // Wire up Enter key for the log input
+    const logInputEl = document.getElementById(`detail-log-note-${id}`);
+    if (logInputEl) {
+        logInputEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                window.addProjectLogFromDetail(id);
+            }
+        });
+    }
 };
 
 // ── Back to list (re-renders from cache, no re-fetch) ─────────────
@@ -230,6 +241,7 @@ window.addProjectLogFromDetail = async function(id) {
             noteInput.value = '';
             _loadDetailLogs(id);
             if (window.refreshProjectsSnapshot) window.refreshProjectsSnapshot();
+            noteInput.focus();
         }
     } catch (e) { alert("Error adding log"); }
 };
