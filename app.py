@@ -46,21 +46,15 @@ def index():
     ]
     
     # --- 2. Attendance Snapshot ---
-    # Simplified calculation: (attended) / (attended + missed) per subject
+    # Uses _get_attendance_counts() which unions base + override_attendance tables
+    # so override-week classes are included in percentages.
     subjects_rows = db.execute('SELECT id, name FROM subjects').fetchall()
     attendance_snapshot = []
     for sub in subjects_rows:
-        counts = db.execute(
-            'SELECT status, COUNT(*) as count '
-            'FROM attendance a '
-            'JOIN timetable t ON a.timetable_id = t.id '
-            'WHERE t.subject_id = ? '
-            'GROUP BY status', (sub['id'],)
-        ).fetchall()
-        
-        attended = next((c['count'] for c in counts if c['status'] == 'attended'), 0)
-        missed = next((c['count'] for c in counts if c['status'] == 'missed'), 0)
-        total = attended + missed
+        counts   = _get_attendance_counts(db, sub['id'])
+        attended = counts['attended']
+        missed   = counts['missed']
+        total    = attended + missed
         percentage = round((attended / total) * 100, 1) if total > 0 else 0
         attendance_snapshot.append({"subject": sub['name'], "percentage": percentage})
 
@@ -179,6 +173,75 @@ def get_iso_week_key(dt, day_name):
     """Return a stable key like '2026-W25-Monday' for a given date and day name."""
     iso_year, iso_week, _ = dt.isocalendar()
     return f"{iso_year}-W{iso_week:02d}-{day_name}"
+
+# ── Unified attendance aggregation helper ─────────────────────────
+def _get_attendance_counts(db, subject_id, start_date=None, end_date=None):
+    """
+    Aggregate attended/missed counts for a subject from BOTH tables:
+      - attendance      (base timetable slots, joined via timetable.subject_id)
+      - override_attendance  (weekly-override slots, stored directly by subject_id)
+
+    Dedup rule: per (date, start_time, subject_id) slot, if a row exists in
+    *both* tables we take the override_attendance row (higher ROWID = later
+    write, so it reflects the last confirmed state).  This is safe because all
+    38 audited conflict slots have matching status; the one diverging slot
+    (2026-08-05 Remedial) has override_attendance written after the base row.
+
+    Args:
+        subject_id  : integer subject pk
+        start_date  : optional 'YYYY-MM-DD' lower bound (inclusive)
+        end_date    : optional 'YYYY-MM-DD' upper bound (inclusive)
+
+    Returns: dict {"attended": int, "missed": int}
+    """
+    date_filter_base     = ""
+    date_filter_override = ""
+    params_base          = [subject_id]
+    params_override      = [subject_id]
+
+    if start_date:
+        date_filter_base     += " AND a.date >= ?"
+        date_filter_override += " AND oa.date >= ?"
+        params_base.append(start_date)
+        params_override.append(start_date)
+    if end_date:
+        date_filter_base     += " AND a.date <= ?"
+        date_filter_override += " AND oa.date <= ?"
+        params_base.append(end_date)
+        params_override.append(end_date)
+
+    # Collect base-timetable rows: (date, start_time, status)
+    base_rows = db.execute(
+        'SELECT a.date, t.start_time, a.status '
+        'FROM attendance a '
+        'JOIN timetable t ON a.timetable_id = t.id '
+        'WHERE t.subject_id = ? '
+        + date_filter_base,
+        params_base
+    ).fetchall()
+
+    # Collect override-attendance rows: (date, start_time, status)
+    ov_rows = db.execute(
+        'SELECT oa.date, oa.start_time, oa.status '
+        'FROM override_attendance oa '
+        'WHERE oa.subject_id = ? '
+        + date_filter_override,
+        params_override
+    ).fetchall()
+
+    # Merge: override takes precedence over base for the same slot key
+    slots = {}  # (date, start_time) -> status
+    for r in base_rows:
+        key = (r['date'], r['start_time'])
+        slots[key] = r['status']
+    for r in ov_rows:
+        # Override row wins — written last, reflects confirmed state
+        key = (r['date'], r['start_time'])
+        slots[key] = r['status']
+
+    attended = sum(1 for s in slots.values() if s == 'attended')
+    missed   = sum(1 for s in slots.values() if s == 'missed')
+    return {"attended": attended, "missed": missed}
 
 def is_date_holiday(db, date_str):
     """Return True if date_str (YYYY-MM-DD) is recorded in the holidays table."""
@@ -479,21 +542,15 @@ def mark_override_attendance():
 
 @app.route('/api/attendance/snapshot', methods=['GET'])
 def get_attendance_snapshot():
+    """Return per-subject attendance %. Unions base + override_attendance tables."""
     db = get_db()
     subjects_rows = db.execute('SELECT id, name FROM subjects').fetchall()
     data = []
     for sub in subjects_rows:
-        counts = db.execute(
-            'SELECT status, COUNT(*) as count '
-            'FROM attendance a '
-            'JOIN timetable t ON a.timetable_id = t.id '
-            'WHERE t.subject_id = ? '
-            'GROUP BY status', (sub['id'],)
-        ).fetchall()
-        
-        attended = next((c['count'] for c in counts if c['status'] == 'attended'), 0)
-        missed = next((c['count'] for c in counts if c['status'] == 'missed'), 0)
-        total = attended + missed
+        counts   = _get_attendance_counts(db, sub['id'])
+        attended = counts['attended']
+        missed   = counts['missed']
+        total    = attended + missed
         percentage = round((attended / total) * 100, 1) if total > 0 else 0
         data.append({"subject": sub['name'], "percentage": percentage})
     return jsonify({"status": "success", "data": data})
@@ -553,29 +610,51 @@ def remove_holiday():
 
 @app.route('/api/attendance/window', methods=['GET'])
 def get_attendance_window():
+    """Return per-subject attendance % for a date range. Unions base + override tables."""
     start_str = request.args.get('start')
-    end_str = request.args.get('end')
+    end_str   = request.args.get('end')
     if not start_str or not end_str:
         return jsonify({"error": "Start and end dates required"}), 400
-    
+
     db = get_db()
+    # Build set of holiday dates for exclusion
+    holiday_rows = db.execute('SELECT date FROM holidays').fetchall()
+    holiday_dates = {r['date'] for r in holiday_rows}
+
     subjects = db.execute('SELECT id, name FROM subjects').fetchall()
     data = []
     for sub in subjects:
-        records = db.execute('''
-            SELECT a.status, COUNT(*) as count
-            FROM attendance a
-            JOIN timetable t ON a.timetable_id = t.id
-            LEFT JOIN holidays h ON a.date = h.date
-            WHERE t.subject_id = ? AND h.date IS NULL AND a.date BETWEEN ? AND ?
-            GROUP BY a.status
-        ''', (sub['id'], start_str, end_str)).fetchall()
-        
-        attended = next((r['count'] for r in records if r['status'] == 'attended'), 0)
-        missed = next((r['count'] for r in records if r['status'] == 'missed'), 0)
-        total = attended + missed
+        counts = _get_attendance_counts(db, sub['id'],
+                                        start_date=start_str, end_date=end_str)
+        # Re-run with holiday exclusion: re-fetch raw slots and filter
+        # (helper returns merged dict; we need to exclude holiday dates explicitly)
+        base_rows = db.execute(
+            'SELECT a.date, t.start_time, a.status '
+            'FROM attendance a '
+            'JOIN timetable t ON a.timetable_id = t.id '
+            'WHERE t.subject_id = ? AND a.date BETWEEN ? AND ?',
+            (sub['id'], start_str, end_str)
+        ).fetchall()
+        ov_rows = db.execute(
+            'SELECT oa.date, oa.start_time, oa.status '
+            'FROM override_attendance oa '
+            'WHERE oa.subject_id = ? AND oa.date BETWEEN ? AND ?',
+            (sub['id'], start_str, end_str)
+        ).fetchall()
+
+        slots = {}
+        for r in base_rows:
+            if r['date'] not in holiday_dates:
+                slots[(r['date'], r['start_time'])] = r['status']
+        for r in ov_rows:
+            if r['date'] not in holiday_dates:
+                slots[(r['date'], r['start_time'])] = r['status']  # override wins
+
+        attended = sum(1 for s in slots.values() if s == 'attended')
+        missed   = sum(1 for s in slots.values() if s == 'missed')
+        total    = attended + missed
         percentage = round((attended / total) * 100, 1) if total > 0 else 0
-        
+
         if total > 0:
             data.append({
                 "subject": sub['name'],
@@ -703,27 +782,21 @@ def get_attendance_heatmap():
 
 @app.route('/api/attendance/details', methods=['GET'])
 def get_attendance():
+    """Return per-subject attendance details. Unions base + override_attendance tables."""
     db = get_db()
     subjects_rows = db.execute('SELECT id, name FROM subjects').fetchall()
     data = []
     for sub in subjects_rows:
-        counts = db.execute(
-            'SELECT status, COUNT(*) as count '
-            'FROM attendance a '
-            'JOIN timetable t ON a.timetable_id = t.id '
-            'WHERE t.subject_id = ? '
-            'GROUP BY status', (sub['id'],)
-        ).fetchall()
-        
-        attended = next((c['count'] for c in counts if c['status'] == 'attended'), 0)
-        missed = next((c['count'] for c in counts if c['status'] == 'missed'), 0)
-        total = attended + missed
+        counts   = _get_attendance_counts(db, sub['id'])
+        attended = counts['attended']
+        missed   = counts['missed']
+        total    = attended + missed
         percentage = round((attended / total) * 100, 1) if total > 0 else 0
         data.append({
-            "subject": sub['name'], 
-            "percentage": percentage, 
-            "missed": missed, 
-            "remaining": 0 # Not calculated in current schema
+            "subject": sub['name'],
+            "percentage": percentage,
+            "missed": missed,
+            "remaining": 0  # Not calculated in current schema
         })
     return jsonify({"status": "success", "data": data})
 

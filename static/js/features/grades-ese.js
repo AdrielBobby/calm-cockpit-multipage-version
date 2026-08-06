@@ -182,10 +182,13 @@ window.renderInternalsTab = async function(container) {
                         </td>
                         <td style="padding: 12px 8px;">
                             <input type="number" value="${mark}"
-                                   onchange="updateInternalMark(${subj.subject_index}, this.value)"
+                                   oninput="updateInternalMark(${subj.subject_index}, this)"
+                                   data-subj-idx="${subj.subject_index}"
                                    placeholder="—"
                                    min="0" max="100" step="0.5"
-                                   style="width: 70px; background: transparent; border: 1px solid transparent; color: var(--accent-teal); font-weight: bold; padding: 4px;">
+                                   id="mark-input-${subj.subject_index}"
+                                   style="width: 70px; background: transparent; border: 1px solid transparent; color: var(--accent-teal); font-weight: bold; padding: 4px; border-radius: 4px; transition: border-color 0.3s;">
+                            <span id="mark-status-${subj.subject_index}" style="font-size:0.7rem; margin-left:4px;"></span>
                         </td>
                     </tr>
                 `;
@@ -444,19 +447,70 @@ window.updateGradeSubjectName = async function(subjIdx, name) {
     } catch (e) { console.error("Failed to update subject name"); }
 };
 
-window.updateInternalMark = async function(subjIdx, mark) {
+// ── Internal marks debounce timers ───────────────────────────────
+const _internalMarkTimers = {};
+
+window.updateInternalMark = async function(subjIdx, inputEl) {
     /**
      * Save the single internal mark for a subject.
      * Always writes to internal_number = 1 (canonical under the new model).
      * The backend also hardcodes internal_number = 1 as a safety net.
+     *
+     * Uses oninput + 500ms debounce so the request fires on every keystroke
+     * change (including after Enter key) without spamming the API.
+     * Shows inline visual feedback: green border + checkmark on success,
+     * red border + error message on failure.
      */
-    try {
-        await fetch('/api/grades/internals/update', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ subject_index: subjIdx, mark: parseFloat(mark) })
-        });
-    } catch (e) { console.error("Failed to update mark"); }
+    const mark = parseFloat(typeof inputEl === 'object' ? inputEl.value : inputEl);
+    const el   = typeof inputEl === 'object' ? inputEl
+                 : document.getElementById(`mark-input-${subjIdx}`);
+    const statusEl = document.getElementById(`mark-status-${subjIdx}`);
+
+    // Clear any pending timer for this subject
+    if (_internalMarkTimers[subjIdx]) {
+        clearTimeout(_internalMarkTimers[subjIdx]);
+    }
+
+    // Show pending state
+    if (el) el.style.borderColor = 'var(--card-border)';
+    if (statusEl) statusEl.textContent = '';
+
+    _internalMarkTimers[subjIdx] = setTimeout(async () => {
+        try {
+            const resp = await fetch('/api/grades/internals/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ subject_index: subjIdx, mark: isNaN(mark) ? null : mark })
+            });
+            const result = await resp.json();
+            if (result.status === 'success') {
+                // Green flash: success
+                if (el) {
+                    el.style.borderColor = 'var(--accent-teal)';
+                    setTimeout(() => { if (el) el.style.borderColor = 'transparent'; }, 1500);
+                }
+                if (statusEl) {
+                    statusEl.style.color = 'var(--accent-teal)';
+                    statusEl.textContent = '\u2713';
+                    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 1500);
+                }
+            } else {
+                throw new Error(result.message || 'Save failed');
+            }
+        } catch (e) {
+            // Red error: failure
+            if (el) {
+                el.style.borderColor = 'var(--accent-red)';
+                setTimeout(() => { if (el) el.style.borderColor = 'transparent'; }, 3000);
+            }
+            if (statusEl) {
+                statusEl.style.color = 'var(--accent-red)';
+                statusEl.textContent = 'Error';
+                setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+            }
+            console.error('Failed to update internal mark:', e);
+        }
+    }, 500);
 };
 
 // Expose nav function globally (called from onclick attributes)
