@@ -202,8 +202,9 @@ body {
 
 .tile-nav-btn {
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -507,17 +508,6 @@ body {
     text-overflow: ellipsis;
 }
 
-/* Tile-specific nav buttons */
-.tile-nav-btn {
-    width: 24px;
-    height: 24px;
-    font-size: 1rem;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
 /* ==============================================
    TABLET  (768px – 1023px)
    ============================================== */
@@ -752,13 +742,6 @@ body {
         min-width: 44px;
         min-height: 44px;
         padding: 0 8px;
-    }
-
-    /* ---- tile nav arrows: comfortably tappable, stays compact ---- */
-    .tile-nav-btn {
-        width: 44px;
-        height: 44px;
-        font-size: 1.2rem;
     }
 
     /* ---- Modals: near full-screen ---- */
