@@ -314,15 +314,19 @@ window.refreshGradesSnapshot = async function() {
 // Uses Promise.allSettled so one tile's failure doesn't block the rest.
 // Each function is guarded with ?. — if a tile's script hasn't loaded or the
 // function doesn't exist, the call is silently skipped (not treated as an error).
+// Returns the settled results so callers can detect partial failure.
 window.refreshAllTiles = async function() {
-    await Promise.allSettled([
+    // invalidateHeatmapCache is synchronous (just nulls the cache object) — call
+    // it directly, before the refreshes start, rather than as a pseudo-async
+    // allSettled entry.
+    window.invalidateHeatmapCache?.();
+    return Promise.allSettled([
         window.refreshTimetableSnapshot?.(),
         window.refreshAttendanceSnapshot?.(),
-        window.refreshProjectsSnapshot?.(),
+        window.refreshFinanceSnapshot?.(),
+        window.refreshGoalsSnapshot?.(),
         window.refreshGradesSnapshot?.(),
-        // Invalidate heatmap cache so the next time the modal opens it re-fetches.
-        // invalidateHeatmapCache is synchronous (just nulls the cache object).
-        Promise.resolve(window.invalidateHeatmapCache?.()),
+        window.refreshProjectsSnapshot?.(),
     ]);
 };
 
@@ -350,13 +354,7 @@ window.refreshAllTiles = async function() {
         let anyError = false;
 
         try {
-            const results = await Promise.allSettled([
-                window.refreshTimetableSnapshot?.(),
-                window.refreshAttendanceSnapshot?.(),
-                window.refreshProjectsSnapshot?.(),
-                window.refreshGradesSnapshot?.(),
-                Promise.resolve(window.invalidateHeatmapCache?.()),
-            ]);
+            const results = await window.refreshAllTiles();
 
             // Check if any settled as rejected
             anyError = results.some(r => r.status === 'rejected');

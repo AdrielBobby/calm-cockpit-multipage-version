@@ -299,6 +299,3 @@ window.deleteProject = async function(id, event) {
         }
     } catch (e) { alert("Error deleting project"); }
 };
-
-// Legacy alias: kept so any existing inline references don't break
-window.addProjectLog = window.addProjectLogFromDetail;
