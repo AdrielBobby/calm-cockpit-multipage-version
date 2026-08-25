@@ -10,16 +10,8 @@
                Vertical gestures are ignored so scroll isn't disrupted.
    ───────────────────────────────────────────────────────────────── */
 
-// ── Canonical status mapping ──────────────────────────────────────
-// Maps backend attendance status strings → UI state strings used by
-// the CSS .period-card[data-status] system and badge classes.
-// Use this helper everywhere instead of ad-hoc string comparisons.
-function _periodStatus(slot) {
-    if (slot.is_none || slot.status === 'none') return 'none';
-    if (slot.status === 'attended')  return 'present';
-    if (slot.status === 'missed')    return 'absent';
-    return 'pending';  // 'unmarked' or any unknown value
-}
+// Canonical status mapping (window._periodStatus) is defined in main.js,
+// which loads before this file — see main.js for the implementation.
 
 // ── Tab ordering for the arrow-nav cycle ─────────────────────────
 const TT_TABS   = ['week', 'tasks', 'manage'];

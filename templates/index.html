@@ -77,6 +77,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 {% for item in attendance %}
                     <div class="snapshot-item" data-subject="{{ item.subject }}" style="text-align: center; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+                        {# Server-rendered mirror of window.attendanceColor() in static/js/main.js — thresholds/colors must stay in sync (Jinja can't call the JS helper) #}
                         <div class="percentage-value" style="font-size: 1.2rem; font-weight: bold; color: {% if item.percentage >= 80 %}var(--accent-teal){% elif item.percentage >= 60 %}var(--accent-yellow){% else %}var(--accent-red){% endif %};">
                             {{ item.percentage }}%
                         </div>

@@ -90,15 +90,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Global Refresh Functions
 
-// Compact status helper for the today tile.
-// Mirrors _periodStatus() in full-timetable.js — kept local so main.js
-// has no hard dependency on load order.
-function _tileStatus(slot) {
+// ── Canonical status mapping ──────────────────────────────────────
+// Maps backend attendance status strings → UI state strings used by
+// the CSS .period-card[data-status] system and badge classes.
+// Use this helper everywhere instead of ad-hoc string comparisons.
+// main.js loads before every feature script, so this is safe to call
+// from any of them without a load-order dependency.
+window._periodStatus = function(slot) {
     if (slot.is_none || slot.status === 'none') return 'none';
-    if (slot.status === 'attended') return 'present';
-    if (slot.status === 'missed')   return 'absent';
-    return 'pending';
-}
+    if (slot.status === 'attended')  return 'present';
+    if (slot.status === 'missed')    return 'absent';
+    return 'pending';  // 'unmarked' or any unknown value
+};
+
+// ── Canonical attendance percentage → color mapping ────────────────
+// Thresholds/colors must match the server-rendered mirror in
+// templates/index.html (Jinja can't call this JS helper directly).
+window.attendanceColor = function(percentage) {
+    if (percentage >= 80) return 'var(--accent-teal)';
+    if (percentage >= 60) return 'var(--accent-yellow)';
+    return 'var(--accent-red)';
+};
 
 window.refreshTimetableSnapshot = async function() {
     const container = document.getElementById('tt-tile-content');
@@ -123,7 +135,7 @@ window.refreshTimetableSnapshot = async function() {
             } else {
                 let html = '<ul style="list-style: none; padding: 0;">';
                 slots.forEach(c => {
-                    const uiStatus  = _tileStatus(c);
+                    const uiStatus  = _periodStatus(c);
                     const badgeHTML = uiStatus === 'present' || uiStatus === 'absent'
                         ? window.renderStatusBadge(uiStatus)
                         : '';
@@ -153,7 +165,7 @@ window.refreshAttendanceSnapshot = async function() {
         if (result.status === 'success') {
             let html = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">';
             result.data.forEach(item => {
-                const color = item.percentage >= 80 ? 'var(--accent-teal)' : (item.percentage >= 60 ? 'var(--accent-yellow)' : 'var(--accent-red)');
+                const color = window.attendanceColor(item.percentage);
                 html += `
                     <div class="snapshot-item" data-subject="${item.subject}" style="text-align: center; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
                         <div class="percentage-value" style="font-size: 1.2rem; font-weight: bold; color: ${color};">

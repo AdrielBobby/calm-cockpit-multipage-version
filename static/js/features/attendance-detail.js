@@ -44,7 +44,7 @@ function renderBySubjectView(data) {
             <tbody>
     `;
     data.forEach((item, index) => {
-        const color = item.percentage >= 80 ? 'var(--accent-teal)' : (item.percentage >= 60 ? 'var(--accent-yellow)' : 'var(--accent-red)');
+        const color = window.attendanceColor(item.percentage);
         // Mocking ID based on index for demo, but we should fetch real IDs if available
         // Assuming subjects table has IDs and they are in the result
         const subjId = item.id || (index + 1); 
