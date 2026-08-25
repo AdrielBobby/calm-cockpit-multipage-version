@@ -1427,3 +1427,97 @@ body {
     .heatmap-legend-cell { width: 9px; height: 9px; }
     .heatmap-legend-label { font-size: 0.6rem; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE REFRESH BUTTON
+   Hidden on desktop; shown only on mobile (≤767px) matching the
+   breakpoint used throughout this stylesheet.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Default: hidden on all viewports */
+.mobile-refresh-btn {
+    display: none;
+}
+
+/* Shown only on mobile */
+@media (max-width: 767px) {
+    .mobile-refresh-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        /* Positioning — bottom-right, below heatmap sheet overlay (z 1500) */
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1400;
+
+        /* Sizing — 48×48 satisfies ≥44px touch target */
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        flex-shrink: 0;
+
+        /* Visual */
+        background: var(--card-bg, #1a1a2e);
+        border: 1.5px solid rgba(167, 139, 250, 0.35);
+        color: var(--accent-purple, #a78bfa);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+        cursor: pointer;
+        transition: background 0.2s ease,
+                    border-color 0.2s ease,
+                    box-shadow 0.2s ease,
+                    opacity 0.2s ease,
+                    transform 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
+    .mobile-refresh-btn:hover {
+        background: rgba(167, 139, 250, 0.12);
+        border-color: rgba(167, 139, 250, 0.6);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5),
+                    0 0 0 4px rgba(167, 139, 250, 0.12);
+    }
+    .mobile-refresh-btn:active {
+        transform: scale(0.93);
+    }
+
+    /* In-progress: disabled appearance, no pointer events */
+    .mobile-refresh-btn:disabled,
+    .mobile-refresh-btn.is-refreshing {
+        opacity: 0.55;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    /* Brief red tint on any tile failure */
+    .mobile-refresh-btn.has-error {
+        color: var(--accent-red, #ef4444);
+        border-color: rgba(239, 68, 68, 0.5);
+    }
+
+    /* Spin the SVG while refreshing */
+    .mobile-refresh-btn.is-refreshing svg {
+        animation: mobile-refresh-spin 0.8s linear infinite;
+        transform-origin: center;
+    }
+}
+
+/* Spin keyframes — outside media query so they always parse */
+@keyframes mobile-refresh-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* Reduced-motion: use opacity pulse instead of rotation */
+@media (prefers-reduced-motion: reduce) {
+    .mobile-refresh-btn.is-refreshing svg {
+        animation: mobile-refresh-pulse 1s ease-in-out infinite;
+    }
+}
+
+@keyframes mobile-refresh-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+}

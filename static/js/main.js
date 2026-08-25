@@ -281,3 +281,105 @@ window.generateDashboardGrid = function(year, month, events) {
     }
     return html;
 };
+
+// ── Grades tile refresh ───────────────────────────────────────────────────────
+// The grades tile has no standalone "refresh" since it can show three different
+// sub-views (Snapshot / Internal Grades / ESE Calculator). This function
+// re-renders whichever view is currently active, preserving the tile's index.
+//
+// tile-nav.js exposes the current index on window so this function can read it:
+//   window._gradesTileIdx  (set by gradesTileNav on each navigation)
+//
+// NOTE: gradesTileCache[0] holds the SSR snapshot HTML. On refresh we re-fetch
+// from /api/grades/snapshot (if the tile is on idx 0) or re-call renderInternalsTab
+// (idx 1) or renderEseTab (idx 2). The cache is NOT invalidated for idx 0 because
+// the grades snapshot is SSR-derived and doesn't have a lightweight client-side
+// re-fetch path — refreshing will just leave idx 0 as-is (acceptable: grades data
+// doesn't change during a session).
+window.refreshGradesSnapshot = async function() {
+    const idx     = window._gradesTileIdx ?? 0;
+    const content = document.getElementById('grades-tile-content');
+    if (!content) return;
+
+    if (idx === 1 && window.renderInternalsTab) {
+        await window.renderInternalsTab(content);
+    } else if (idx === 2 && window.renderEseTab) {
+        window.renderEseTab(content);
+        if (window.fetchEseSubjects) await window.fetchEseSubjects();
+    }
+    // idx === 0: SSR-rendered snapshot — no client-side refresh path, leave as-is.
+};
+
+// ── Refresh all dashboard tiles (mobile refresh button) ───────────────────────
+// Uses Promise.allSettled so one tile's failure doesn't block the rest.
+// Each function is guarded with ?. — if a tile's script hasn't loaded or the
+// function doesn't exist, the call is silently skipped (not treated as an error).
+window.refreshAllTiles = async function() {
+    await Promise.allSettled([
+        window.refreshTimetableSnapshot?.(),
+        window.refreshAttendanceSnapshot?.(),
+        window.refreshProjectsSnapshot?.(),
+        window.refreshGradesSnapshot?.(),
+        // Invalidate heatmap cache so the next time the modal opens it re-fetches.
+        // invalidateHeatmapCache is synchronous (just nulls the cache object).
+        Promise.resolve(window.invalidateHeatmapCache?.()),
+    ]);
+};
+
+// ── Mobile refresh button wiring ──────────────────────────────────────────────
+(function() {
+    const btn = document.getElementById('mobile-refresh-btn');
+    if (!btn) return;
+
+    // Guard: true while a refresh is already in progress
+    let _isRefreshing = false;
+    // Cooldown timer — prevents accidental double-tap re-trigger
+    let _cooldownTimer = null;
+    const COOLDOWN_MS = 1500;
+
+    btn.addEventListener('click', async function handleRefreshClick() {
+        // Block if already running or in cooldown
+        if (_isRefreshing || btn.classList.contains('is-refreshing')) return;
+
+        // ── Enter loading state ──
+        _isRefreshing = true;
+        btn.classList.add('is-refreshing');
+        btn.classList.remove('has-error');
+        btn.setAttribute('aria-busy', 'true');
+
+        let anyError = false;
+
+        try {
+            const results = await Promise.allSettled([
+                window.refreshTimetableSnapshot?.(),
+                window.refreshAttendanceSnapshot?.(),
+                window.refreshProjectsSnapshot?.(),
+                window.refreshGradesSnapshot?.(),
+                Promise.resolve(window.invalidateHeatmapCache?.()),
+            ]);
+
+            // Check if any settled as rejected
+            anyError = results.some(r => r.status === 'rejected');
+        } catch (_) {
+            anyError = true;
+        }
+
+        // ── Leave loading state ──
+        btn.classList.remove('is-refreshing');
+        btn.removeAttribute('aria-busy');
+
+        if (anyError) {
+            // Brief red tint to signal partial failure, then clear
+            btn.classList.add('has-error');
+            setTimeout(() => btn.classList.remove('has-error'), 2500);
+        }
+
+        // Cooldown: ignore additional taps for COOLDOWN_MS after completion
+        if (_cooldownTimer) clearTimeout(_cooldownTimer);
+        _cooldownTimer = setTimeout(() => {
+            _isRefreshing = false;
+            _cooldownTimer = null;
+        }, COOLDOWN_MS);
+    });
+})();
+

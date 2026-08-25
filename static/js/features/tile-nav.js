@@ -139,6 +139,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gradesTileIdx < 0) gradesTileIdx = 0;
         if (gradesTileIdx > gradesTileMax) gradesTileIdx = gradesTileMax;
 
+        // Expose current index globally so refreshGradesSnapshot() can
+        // re-render whichever view is active without resetting to idx 0.
+        window._gradesTileIdx = gradesTileIdx;
+
         const prevBtn = document.getElementById('grades-tile-prev');
         const nextBtn = document.getElementById('grades-tile-next');
         const labelEl = document.getElementById('grades-tile-label');
