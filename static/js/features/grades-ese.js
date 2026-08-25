@@ -386,30 +386,6 @@ function eseRenderSubjects() {
     });
 }
 
-// ── Shared data helpers ───────────────────────────────────────────
-window.clearData = async function(type) {
-    if (!confirm(`Are you sure you want to clear all ${type} data? This cannot be undone.`)) return;
-    let url = '';
-    if (type === 'grades-history')   url = '/api/grades/clear/history';
-    if (type === 'grades-internals') url = '/api/grades/clear/internals';
-    if (type === 'attendance')       url = '/api/attendance/clear';
-    if (type === 'finance')          url = '/api/finance/clear';
-    if (type === 'goals')            url = '/api/goals/clear';
-    try {
-        const response = await fetch(url, { method: 'DELETE' });
-        if (response.ok) {
-            const modalBody = document.getElementById('modal-body');
-            if (type.startsWith('grades') && window.loadGradesModal) window.loadGradesModal(modalBody);
-            if (type === 'attendance' && window.loadAttendanceModal) window.loadAttendanceModal(modalBody);
-            if (type === 'finance' && window.loadFinanceModal)       window.loadFinanceModal(modalBody);
-            if (type === 'goals' && window.loadGoalsModal)           window.loadGoalsModal(modalBody);
-            if (window.refreshAttendanceSnapshot) window.refreshAttendanceSnapshot();
-            if (window.refreshFinanceSnapshot)    window.refreshFinanceSnapshot();
-            if (window.refreshGoalsSnapshot)      window.refreshGoalsSnapshot();
-        }
-    } catch (e) { alert("Error clearing data"); }
-};
-
 window.addSemesterRecord = async function() {
     const num  = document.getElementById('new-sem-num').value;
     const sgpa = document.getElementById('new-sem-sgpa').value;
