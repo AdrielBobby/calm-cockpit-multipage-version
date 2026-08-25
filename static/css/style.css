@@ -10,6 +10,19 @@
     --accent-yellow: #f59e0b;
     --radius: 16px;
     --transition: 200ms ease;
+
+    /* Spacing scale */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+
+    /* Shadow scale — derived from existing elevation shadows already in
+       use (.tile, the heatmap tooltip, .modal-content respectively) */
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Timetable period cards — status colour system ─────────────────
@@ -452,6 +465,11 @@ body {
     font-size: 1.5rem;
     cursor: pointer;
     transition: var(--transition);
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-close:hover {
@@ -470,8 +488,8 @@ body {
     border: 1px solid var(--card-border);
     color: var(--text-muted);
     border-radius: 6px;
-    width: 28px;
-    height: 28px;
+    min-width: 44px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -730,10 +748,8 @@ body {
 
     .cal-dot  { width: 4px; height: 4px; }
 
-    /* Calendar nav — ensure tappable */
+    /* Calendar nav — larger glyph on mobile (44×44 box now set in the base rule) */
     .btn-icon {
-        width: 44px;
-        height: 44px;
         font-size: 1.3rem;
     }
 
@@ -779,13 +795,8 @@ body {
         padding-bottom: 12px;
     }
 
-    /* Close button — 44×44px touch target */
+    /* Close button — larger glyph on mobile (44×44 box now set in the base rule) */
     .btn-close {
-        min-width: 44px;
-        min-height: 44px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
         font-size: 1.6rem;
     }
 
