@@ -314,23 +314,39 @@ window.navOverviewMonth = async function(dir) {
         const grid = document.getElementById('dash-cal-grid');
         if (grid) {
             grid.innerHTML = `
-                ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div class="cal-day-name">${d}</div>`).join('')}
+                ${window.generateCalendarDayHeader()}
                 ${window.generateDashboardGrid(window.dashCurrentYear, window.dashCurrentMonth, events)}
             `;
         }
     } catch (e) { console.error("Failed to load overview calendar events", e); }
 };
 
-window.generateDashboardGrid = function(year, month, events) {
+/* ── Shared calendar grid generation ─────────────────────────────────
+   Used by both the dashboard month calendar and the compact calendar
+   modal — the only real differences between them are (a) what happens
+   when a day cell is clicked and (b) how the ">3 events" overflow
+   marker renders, so those are injected via `options` rather than
+   forking the whole function. Everything else (Monday-first week math,
+   leading blank days, today/date computation, event-dot rendering via
+   window.LABEL_COLORS) lives here once.
+   ──────────────────────────────────────────────────────────────────── */
+window.generateCalendarDayHeader = function() {
+    return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div class="cal-day-name">${d}</div>`).join('');
+};
+
+window.generateCalendarGrid = function(year, month, events, options) {
+    const onClickAttr = options.onClickAttr;
+    const renderOverflow = options.renderOverflow;
+
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startDow = (firstDay.getDay() + 6) % 7; // Adjust to Monday start
-    
+
     let html = '';
     for (let i = 0; i < startDow; i++) {
         html += `<div class="cal-day-cell cal-day-empty" style="opacity: 0.1;"></div>`;
     }
-    
+
     const todayStr = new Date().toISOString().split('T')[0];
 
     for (let d = 1; d <= lastDay.getDate(); d++) {
@@ -339,18 +355,25 @@ window.generateDashboardGrid = function(year, month, events) {
         const dayEvents = events.filter(e => e.date === dateStr);
 
         html += `
-            <div onclick="openCalendarAtDate('${dateStr}')"
+            <div ${onClickAttr(dateStr)}
                  class="cal-day-cell ${isToday ? 'cal-today' : ''}"
                  data-date="${dateStr}">
                 <span class="cal-day-num">${d}</span>
                 <div class="cal-dots">
                     ${dayEvents.slice(0, 3).map(e => `<span class="cal-dot" style="background: ${window.LABEL_COLORS[e.label] || 'var(--accent-teal)'};"></span>`).join('')}
-                    ${dayEvents.length > 3 ? `<span style="font-size: 0.6rem; color: var(--text-muted); line-height: 1;">+</span>` : ''}
+                    ${dayEvents.length > 3 ? renderOverflow(dayEvents.length - 3) : ''}
                 </div>
             </div>
         `;
     }
     return html;
+};
+
+window.generateDashboardGrid = function(year, month, events) {
+    return window.generateCalendarGrid(year, month, events, {
+        onClickAttr: (dateStr) => `onclick="openCalendarAtDate('${dateStr}')"`,
+        renderOverflow: () => `<span style="font-size: 0.6rem; color: var(--text-muted); line-height: 1;">+</span>`,
+    });
 };
 
 // ── Grades tile refresh ───────────────────────────────────────────────────────

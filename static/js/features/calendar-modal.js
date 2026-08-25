@@ -45,7 +45,7 @@ function renderCompactCalendarUI(container, events) {
 
             <!-- Calendar Grid -->
             <div class="cal-grid">
-                ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div class="cal-day-name">${d}</div>`).join('')}
+                ${window.generateCalendarDayHeader()}
                 ${generateCompactGrid(window.calCurrentYear, window.calCurrentMonth, events)}
             </div>
 
@@ -85,35 +85,10 @@ function renderCompactCalendarUI(container, events) {
 }
 
 function generateCompactGrid(year, month, events) {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startDow = (firstDay.getDay() + 6) % 7; 
-    
-    let html = '';
-    for (let i = 0; i < startDow; i++) {
-        html += `<div class="cal-day-cell cal-day-empty" style="opacity: 0.1;"></div>`;
-    }
-    
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    for (let d = 1; d <= lastDay.getDate(); d++) {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const isToday = dateStr === todayStr;
-        const dayEvents = events.filter(e => e.date === dateStr);
-
-        html += `
-            <div onclick='selectDay("${dateStr}", ${JSON.stringify(events).replace(/"/g, '&quot;')})'
-                 class="cal-day-cell ${isToday ? 'cal-today' : ''}"
-                 data-date="${dateStr}">
-                <span class="cal-day-num">${d}</span>
-                <div class="cal-dots">
-                    ${dayEvents.slice(0, 3).map(e => `<span class="cal-dot" style="background: ${window.LABEL_COLORS[e.label] || 'var(--accent-teal)'};"></span>`).join('')}
-                    ${dayEvents.length > 3 ? `<span class="cal-dot-more">+${dayEvents.length - 3}</span>` : ''}
-                </div>
-            </div>
-        `;
-    }
-    return html;
+    return window.generateCalendarGrid(year, month, events, {
+        onClickAttr: (dateStr) => `onclick='selectDay("${dateStr}", ${JSON.stringify(events).replace(/"/g, '&quot;')})'`,
+        renderOverflow: (extra) => `<span class="cal-dot-more">+${extra}</span>`,
+    });
 }
 
 window.navMonth = function(dir) {
