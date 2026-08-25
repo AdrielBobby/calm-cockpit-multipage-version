@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .slice(0, 6);
 
                 if (events.length === 0) {
-                    const html = '<p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:16px 0;">No upcoming tasks! 🎉</p>';
+                    const html = `<p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:16px 0;">No upcoming tasks! ${window.icon('sparkles', { size: 14 })}</p>`;
                     ttTileCache[1] = html;
                     content.innerHTML = html;
                 } else {

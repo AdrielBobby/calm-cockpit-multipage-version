@@ -67,6 +67,27 @@ window.LABEL_COLORS = {
     Clg: '#81d4fa',
 };
 
+/* ── Server-rendered icon hydration ──────────────────────────────────
+   The initial page load is server-rendered (Jinja), which can't call
+   window.icon()/window.renderStatusBadge() at template time. Those spots
+   are rendered as placeholder <span data-icon="..."> / <span
+   data-status-badge="..."> elements instead, and hydrated here once,
+   after icons.js has loaded — so there's still exactly one source of
+   truth for every icon's markup.
+   ──────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-icon]').forEach(function (el) {
+        const name = el.dataset.icon;
+        const opts = {};
+        if (el.dataset.iconSize) opts.size = parseFloat(el.dataset.iconSize);
+        if (el.dataset.iconStrokeWidth) opts.strokeWidth = parseFloat(el.dataset.iconStrokeWidth);
+        el.innerHTML = window.icon(name, opts);
+    });
+    document.querySelectorAll('[data-status-badge]').forEach(function (el) {
+        el.outerHTML = window.renderStatusBadge(el.dataset.statusBadge);
+    });
+});
+
 // Global Refresh Functions
 
 // Compact status helper for the today tile.
@@ -90,7 +111,7 @@ window.refreshTimetableSnapshot = async function() {
             if (result.is_holiday) {
                 container.innerHTML = `
                     <div class="tt-holiday-state">
-                        <span class="tt-holiday-icon">🏖️</span>
+                        <span class="tt-holiday-icon">${window.icon('umbrella', { size: 26 })}</span>
                         <p>Closed for holiday</p>
                     </div>`;
                 return;
@@ -98,16 +119,14 @@ window.refreshTimetableSnapshot = async function() {
             // Compact tile: hide None slots (no class held) — full timetable still shows them
             const slots = result.data.filter(c => !c.is_none);
             if (slots.length === 0) {
-                container.innerHTML = '<p class="text-muted" style="color: var(--text-muted); font-size: 0.9rem;">No classes today! 🎉</p>';
+                container.innerHTML = `<p class="text-muted" style="color: var(--text-muted); font-size: 0.9rem;">No classes today! ${window.icon('sparkles', { size: 15 })}</p>`;
             } else {
                 let html = '<ul style="list-style: none; padding: 0;">';
                 slots.forEach(c => {
                     const uiStatus  = _tileStatus(c);
-                    const badgeHTML = uiStatus === 'present'
-                        ? `<span class="period-status-badge badge-present">&#10003; Present</span>`
-                        : uiStatus === 'absent'
-                            ? `<span class="period-status-badge badge-absent">&#10007; Absent</span>`
-                            : '';
+                    const badgeHTML = uiStatus === 'present' || uiStatus === 'absent'
+                        ? window.renderStatusBadge(uiStatus)
+                        : '';
                     html += `
                         <li class="period-card" data-status="${uiStatus}">
                             <span style="color: var(--text-muted); font-size: 0.9rem;">${c.time}</span>
@@ -194,7 +213,7 @@ window.refreshGoalsSnapshot = async function() {
                     <li onclick="toggleGoalStatus(${goal.id}, ${!goal.completed})" 
                         style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; cursor: pointer; ${goal.completed ? 'color: var(--text-muted); text-decoration: line-through;' : ''}">
                         <div style="width: 18px; height: 18px; border: 2px solid ${goal.completed ? 'var(--accent-teal)' : 'var(--card-border)'}; border-radius: 4px; background: ${goal.completed ? 'var(--accent-teal)' : 'transparent'}; display: flex; align-items: center; justify-content: center;">
-                            ${goal.completed ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
+                            ${goal.completed ? window.icon('check', { size: 12, strokeWidth: 4 }) : ''}
                         </div>
                         ${goal.text}
                     </li>

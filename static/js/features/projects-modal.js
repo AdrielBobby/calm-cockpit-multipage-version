@@ -96,9 +96,9 @@ function renderProjectsList(modalBody, projects) {
                      onmouseleave="this.style.borderColor='var(--card-border)'; this.style.background='rgba(255,255,255,0.02)';">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                         <strong style="font-size: 1rem; line-height: 1.3;">${proj.name}</strong>
-                        <button onclick="deleteProject(${proj.id}, event)" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; flex-shrink: 0; min-width: 32px; min-height: 32px; display:flex; align-items:center; justify-content:center; border-radius: 6px; transition: color 0.2s, background 0.2s;"
+                        <button onclick="deleteProject(${proj.id}, event)" aria-label="Delete project" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; flex-shrink: 0; min-width: 32px; min-height: 32px; display:flex; align-items:center; justify-content:center; border-radius: 6px; transition: color 0.2s, background 0.2s;"
                                 onmouseenter="this.style.color='var(--accent-red)'; this.style.background='rgba(239,68,68,0.1)';"
-                                onmouseleave="this.style.color='var(--text-muted)'; this.style.background='transparent';">&times;</button>
+                                onmouseleave="this.style.color='var(--text-muted)'; this.style.background='transparent';">${window.icon('x', { size: 16 })}</button>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span class="project-status-badge" style="background: ${bg}; color: ${color}; border: 1px solid ${color}30;">${label}</span>
@@ -129,7 +129,7 @@ window.renderProjectDetail = async function(id) {
 
     modalBody.innerHTML = `
         <button class="back-btn" onclick="backToProjectList()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            ${window.icon('chevron-left', { size: 14, strokeWidth: 2.5 })}
             Back to Projects
         </button>
 

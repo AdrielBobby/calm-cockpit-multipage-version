@@ -98,7 +98,7 @@ window.loadFinanceModal = async function(modalBody) {
                         ${isExpense ? '-' : '+'}₹${t.amount}
                     </td>
                     <td style="padding: 12px 8px; text-align: right;">
-                        <button onclick="deleteTransaction(${t.id})" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem;">&times;</button>
+                        <button onclick="deleteTransaction(${t.id})" aria-label="Delete transaction" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem;">${window.icon('x', { size: 16 })}</button>
                     </td>
                 </tr>
             `;

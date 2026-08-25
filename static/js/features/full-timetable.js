@@ -186,7 +186,7 @@ function renderWeeklyTimetable(data, hideControls = false) {
 
         // Override badge for the week view
         const overrideBadge = isOverride
-            ? `<span style="font-size: 0.65rem; background: rgba(167,139,250,0.18); color: var(--accent-purple); border: 1px solid rgba(167,139,250,0.35); padding: 2px 8px; border-radius: 20px; font-weight: 600; letter-spacing: 0.3px; margin-left: 8px;">📅 Override</span>`
+            ? `<span style="font-size: 0.65rem; background: rgba(167,139,250,0.18); color: var(--accent-purple); border: 1px solid rgba(167,139,250,0.35); padding: 2px 8px; border-radius: 20px; font-weight: 600; letter-spacing: 0.3px; margin-left: 8px; display:inline-flex; align-items:center; gap:3px;">${window.icon('calendar', { size: 11 })} Override</span>`
             : '';
 
         html += `
@@ -214,7 +214,7 @@ function renderWeeklyTimetable(data, hideControls = false) {
                 ? 'Closed for Holiday'
                 : isSunday
                     ? 'No classes — Sunday is always a rest day 🌙'
-                    : 'No classes this Saturday — add subjects in Manage to make it a class day 📅';
+                    : `No classes this Saturday — add subjects in Manage to make it a class day ${window.icon('calendar', { size: 14 })}`;
             const color = isHoliday ? 'var(--accent-red)' : 'var(--text-muted)';
             const border = isHoliday ? 'var(--accent-red)' : 'var(--card-border)';
             html += `<div style="background: rgba(255,255,255,0.02); border: 1px dashed ${border}; padding: 16px; border-radius: 8px; text-align: center; color: ${color}; font-weight: 500; font-size: 0.9rem;">${msg}</div>`;
@@ -240,9 +240,9 @@ function renderWeeklyTimetable(data, hideControls = false) {
             // Badge: only shown in read-only/compact mode (hideControls=true).
             // In the full interactive view the Present/Absent buttons communicate state,
             // so the chip would be redundant and is intentionally omitted.
-            const badgeClass = uiStatus === 'present' ? 'badge-present' : uiStatus === 'absent' ? 'badge-absent' : '';
-            const badgeText  = uiStatus === 'present' ? '&#10003; Present' : uiStatus === 'absent' ? '&#10007; Absent' : '';
-            const badge      = (hideControls && badgeClass) ? `<span class="period-status-badge ${badgeClass}">${badgeText}</span>` : '';
+            const badge = (hideControls && (uiStatus === 'present' || uiStatus === 'absent'))
+                ? window.renderStatusBadge(uiStatus)
+                : '';
 
             html += `
                 <div class="period-card" data-status="${uiStatus}" style="margin-bottom:8px; gap:10px;">
@@ -444,8 +444,7 @@ function _updateAttendanceBtnPair(btn, status) {
         // In the full interactive view badges are intentionally omitted, so we never inject one.
         const badge = card.querySelector('.period-status-badge');
         if (badge) {
-            badge.className = `period-status-badge badge-${newUiStatus}`;
-            badge.innerHTML = newUiStatus === 'present' ? '&#10003; Present' : '&#10007; Absent';
+            badge.outerHTML = window.renderStatusBadge(newUiStatus);
         }
         // No else: compact/read-only views already have a badge rendered server-side;
         //          interactive views deliberately show no chip (buttons convey state instead).
@@ -552,7 +551,7 @@ function _buildManageDaySection(day, dayData, subjects) {
                     ${revertLink}
                 </div>
                 <div class="weekend-holiday-note">
-                    📅 Holiday by default — add subjects below to make this Saturday a class day for this week only.
+                    ${window.icon('calendar', { size: 14 })} Holiday by default — add subjects below to make this Saturday a class day for this week only.
                 </div>
                 <div id="override-slots-${day}" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
                     ${_renderOverrideSlotRows([], subjects, day, overrideKey, true)}
@@ -664,8 +663,9 @@ function _renderOverrideSlotRow(c, subjects, day, overrideKey, isNew, idx) {
             </select>
             <button onclick="removeOverrideSlot(this, '${overrideKey}', '${day}', ${isNew})"
                     title="Remove slot"
+                    aria-label="Remove slot"
                     style="background: rgba(239,68,68,0.1); border: 1px solid var(--accent-red); color: var(--accent-red); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                ×
+                ${window.icon('x', { size: 14 })}
             </button>
         </div>`;
 }

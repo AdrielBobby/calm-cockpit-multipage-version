@@ -159,7 +159,7 @@ window.selectDay = function(dateStr, events) {
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <span style="font-size: 0.7rem; color: ${STATUS_BADGE[e.status] || 'white'}; text-transform: uppercase; font-weight: bold;">${e.status?.replace('_', ' ') || 'planned'}</span>
                             <button onclick='startEditEvent(${JSON.stringify(e).replace(/"/g, '&quot;')}, "${dateStr}")' style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">✎</button>
-                            <button onclick="deleteCalEvent(${e.id}, '${dateStr}')" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem;">✕</button>
+                            <button onclick="deleteCalEvent(${e.id}, '${dateStr}')" aria-label="Delete event" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem;">${window.icon('x', { size: 14 })}</button>
                         </div>
                     </div>
                     <span class="cal-label-badge" style="background:${window.LABEL_COLORS[e.label] || '#888'}22;color:${window.LABEL_COLORS[e.label] || '#888'}">${e.label || 'Personal'}</span>

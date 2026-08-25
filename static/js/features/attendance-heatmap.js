@@ -383,7 +383,7 @@ function _dayHTML(dayObj, pfx) {
     if (dayObj.subjects && dayObj.subjects.length > 0) {
         dayObj.subjects.forEach(sub => {
             const cls  = sub.status === 'attended' ? 'attended' : sub.status === 'missed' ? 'missed' : 'unmarked';
-            const icon = sub.status === 'attended' ? '&#10003;' : sub.status === 'missed' ? '&#10007;' : '&#183;';
+            const icon = sub.status === 'attended' ? window.icon('check', { size: 12 }) : sub.status === 'missed' ? window.icon('x', { size: 12 }) : '&#183;';
             html += `<div class="${pfx}-subject ${cls}">${icon} ${_esc(sub.name)}</div>`;
         });
     }
