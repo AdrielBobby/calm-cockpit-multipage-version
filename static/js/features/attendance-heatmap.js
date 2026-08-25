@@ -412,8 +412,7 @@ function _navLabel(from, to) {
 }
 
 function _fmtDate(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    return window.formatDate(dateStr, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 function _esc(str) {

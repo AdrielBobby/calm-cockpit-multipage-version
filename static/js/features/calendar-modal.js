@@ -141,7 +141,7 @@ window.selectDay = function(dateStr, events) {
 
     if (!agendaDate || !agendaEvents) return;
     
-    const displayDate = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const displayDate = window.formatDate(dateStr, { weekday: 'long', month: 'long', day: 'numeric' });
     agendaDate.textContent = displayDate;
     evDateInput.value = dateStr;
     

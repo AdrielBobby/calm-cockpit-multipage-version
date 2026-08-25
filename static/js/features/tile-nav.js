@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     let html = '<ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:8px;">';
                     events.forEach(e => {
-                        const dateStr = new Date(e.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        const dateStr = window.formatDate(e.date, { month: 'short', day: 'numeric' });
                         const accentColor = window.LABEL_COLORS[e.label] || 'var(--accent-teal)';
                         const statusColor = STATUS_COLORS[e.status] || 'var(--text-muted)';
                         const statusLabel = (e.status || 'planned').replace('_', ' ');

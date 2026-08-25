@@ -102,7 +102,7 @@ function renderProjectsList(modalBody, projects) {
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span class="project-status-badge" style="background: ${bg}; color: ${color}; border: 1px solid ${color}30;">${label}</span>
-                        <span style="font-size: 0.72rem; color: var(--text-muted);">Updated ${new Date(proj.last_updated).toLocaleDateString()}</span>
+                        <span style="font-size: 0.72rem; color: var(--text-muted);">Updated ${window.formatTimestamp(proj.last_updated)}</span>
                     </div>
                     <div style="font-size: 0.78rem; color: var(--text-muted); display:flex; align-items:center; gap:4px;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
@@ -137,7 +137,7 @@ window.renderProjectDetail = async function(id) {
             <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 12px;">${proj.name}</h2>
             <div class="project-detail-meta">
                 <span class="project-status-badge" style="background: ${bg}; color: ${color}; border: 1px solid ${color}30;">${label}</span>
-                <span style="font-size: 0.78rem; color: var(--text-muted);">Last updated: ${new Date(proj.last_updated).toLocaleDateString()}</span>
+                <span style="font-size: 0.78rem; color: var(--text-muted);">Last updated: ${window.formatTimestamp(proj.last_updated)}</span>
             </div>
 
             <p class="project-description" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px;">

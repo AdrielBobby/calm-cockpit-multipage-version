@@ -112,6 +112,32 @@ window.attendanceColor = function(percentage) {
     return 'var(--accent-red)';
 };
 
+/* ── Shared client-side date formatting ──────────────────────────────
+   window.formatDate(dateStr, options) — for date-only "YYYY-MM-DD"
+   values (events, attendance, etc.). Appending 'T00:00:00' forces the
+   browser to parse it as local midnight instead of UTC midnight —
+   without it, new Date('YYYY-MM-DD') can render as the previous day in
+   any timezone behind UTC. This is the same safe pattern every call
+   site below already used individually; now centralized. Locale is
+   fixed to 'en-US' to match what every existing call site already
+   passed explicitly.
+
+   window.formatTimestamp(isoString, options) — for full ISO timestamps
+   that already include a time component (e.g. Python's
+   datetime.now().isoformat(), used for project last_updated/log
+   dates). These parse safely as local time already, so no date-only
+   patching is needed or applied. Locale is left as the runtime default
+   (undefined) to match what those call sites already did by omitting
+   the locale argument.
+   ──────────────────────────────────────────────────────────────────── */
+window.formatDate = function(dateStr, options) {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', options || {});
+};
+
+window.formatTimestamp = function(isoString, options) {
+    return new Date(isoString).toLocaleDateString(undefined, options);
+};
+
 window.refreshTimetableSnapshot = async function() {
     const container = document.getElementById('tt-tile-content');
     if (!container) return;

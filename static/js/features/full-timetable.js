@@ -295,7 +295,7 @@ function renderTasksView(events, filterStatus = 'all') {
         const sortedDates = Object.keys(grouped).sort();
 
         sortedDates.forEach(date => {
-            const displayDate = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            const displayDate = window.formatDate(date, { weekday: 'short', month: 'short', day: 'numeric' });
             html += `<h4 style="color: var(--accent-purple); margin-top: 12px; font-size: 0.9rem;">${displayDate}</h4>`;
 
             grouped[date].forEach(e => {
