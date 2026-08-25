@@ -95,20 +95,19 @@ function generateCompactGrid(year, month, events) {
     }
     
     const todayStr = new Date().toISOString().split('T')[0];
-    const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#ffb74d', Study: '#50fb07', Clg: '#81d4fa' };
 
     for (let d = 1; d <= lastDay.getDate(); d++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const isToday = dateStr === todayStr;
         const dayEvents = events.filter(e => e.date === dateStr);
-        
+
         html += `
-            <div onclick='selectDay("${dateStr}", ${JSON.stringify(events).replace(/"/g, '&quot;')})' 
+            <div onclick='selectDay("${dateStr}", ${JSON.stringify(events).replace(/"/g, '&quot;')})'
                  class="cal-day-cell ${isToday ? 'cal-today' : ''}"
                  data-date="${dateStr}">
                 <span class="cal-day-num">${d}</span>
                 <div class="cal-dots">
-                    ${dayEvents.slice(0, 3).map(e => `<span class="cal-dot" style="background: ${LABEL_COLORS[e.label] || 'var(--accent-teal)'};"></span>`).join('')}
+                    ${dayEvents.slice(0, 3).map(e => `<span class="cal-dot" style="background: ${window.LABEL_COLORS[e.label] || 'var(--accent-teal)'};"></span>`).join('')}
                     ${dayEvents.length > 3 ? `<span class="cal-dot-more">+${dayEvents.length - 3}</span>` : ''}
                 </div>
             </div>
@@ -149,12 +148,11 @@ window.selectDay = function(dateStr, events) {
     if (dayEvents.length === 0) {
         agendaEvents.innerHTML = '<p class="cal-no-events">Nothing planned.</p>';
     } else {
-        const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#ffb74d', Study: '#50fb07', Clg: '#81d4fa' };
         const STATUS_BADGE = { planned: 'var(--text-muted)', in_progress: 'var(--accent-yellow)', done: 'var(--accent-teal)' };
-        
+
         agendaEvents.innerHTML = dayEvents.map(e => `
             <div class="cal-event-item" id="event-item-${e.id}">
-                <span class="cal-event-dot" style="background:${LABEL_COLORS[e.label] || '#888'}"></span>
+                <span class="cal-event-dot" style="background:${window.LABEL_COLORS[e.label] || '#888'}"></span>
                 <div class="cal-event-info">
                     <div style="display:flex; justify-content:space-between; align-items: center;">
                         <strong id="event-title-${e.id}">${e.title}</strong>
@@ -164,7 +162,7 @@ window.selectDay = function(dateStr, events) {
                             <button onclick="deleteCalEvent(${e.id}, '${dateStr}')" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem;">✕</button>
                         </div>
                     </div>
-                    <span class="cal-label-badge" style="background:${LABEL_COLORS[e.label] || '#888'}22;color:${LABEL_COLORS[e.label] || '#888'}">${e.label || 'Personal'}</span>
+                    <span class="cal-label-badge" style="background:${window.LABEL_COLORS[e.label] || '#888'}22;color:${window.LABEL_COLORS[e.label] || '#888'}">${e.label || 'Personal'}</span>
                 </div>
             </div>
         `).join('');

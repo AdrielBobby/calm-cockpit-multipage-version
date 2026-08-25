@@ -275,7 +275,6 @@ function renderWeeklyTimetable(data, hideControls = false) {
 
 // ── Tasks view renderer ───────────────────────────────────────────
 function renderTasksView(events, filterStatus = 'all') {
-    const LABEL_COLORS  = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#03dac6', Gym: '#ffb74d', Study: '#50fb07', Clg: '#81d4fa' };
     const STATUS_COLORS = { planned: 'var(--text-muted)', in_progress: 'var(--accent-yellow)', done: 'var(--accent-teal)' };
 
     let filteredEvents = events;
@@ -311,7 +310,7 @@ function renderTasksView(events, filterStatus = 'all') {
                 html += `
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 16px;">
-                            <div style="width: 4px; height: 32px; background: ${LABEL_COLORS[e.label] || 'var(--accent-teal)'}; border-radius: 2px;"></div>
+                            <div style="width: 4px; height: 32px; background: ${window.LABEL_COLORS[e.label] || 'var(--accent-teal)'}; border-radius: 2px;"></div>
                             <div>
                                 <div style="font-weight: 600; margin-bottom: 4px;">${e.title}</div>
                                 <div style="display: flex; gap: 8px; align-items: center;">

@@ -52,6 +52,21 @@ window.initSwipe = function(targetEl, onSwipeLeft, onSwipeRight) {
     targetEl.addEventListener('mouseup', (e) => handleEnd(e.clientX, e.clientY));
 };
 
+/* ── Shared label color palette ──────────────────────────────────────
+   Single source of truth for calendar/timetable category dot colors.
+   Consumers must read window.LABEL_COLORS directly at render time
+   (not copy it into a local const) so every surface stays in sync.
+   Mirrored server-side in app.py — keep both in sync.
+   ──────────────────────────────────────────────────────────────────── */
+window.LABEL_COLORS = {
+    Personal: '#bb86fc',
+    Exam: '#cf6679',
+    Project: '#ffb74d',
+    Gym: '#03dac6',
+    Study: '#50fb07',
+    Clg: '#81d4fa',
+};
+
 // Global Refresh Functions
 
 // Compact status helper for the today tile.
@@ -260,20 +275,19 @@ window.generateDashboardGrid = function(year, month, events) {
     }
     
     const todayStr = new Date().toISOString().split('T')[0];
-    const LABEL_COLORS = { Personal: '#bb86fc', Exam: '#cf6679', Project: '#ffb74d', Study: '#50fb07', Clg: '#81d4fa' };
 
     for (let d = 1; d <= lastDay.getDate(); d++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const isToday = dateStr === todayStr;
         const dayEvents = events.filter(e => e.date === dateStr);
-        
+
         html += `
-            <div onclick="openCalendarAtDate('${dateStr}')" 
+            <div onclick="openCalendarAtDate('${dateStr}')"
                  class="cal-day-cell ${isToday ? 'cal-today' : ''}"
                  data-date="${dateStr}">
                 <span class="cal-day-num">${d}</span>
                 <div class="cal-dots">
-                    ${dayEvents.slice(0, 3).map(e => `<span class="cal-dot" style="background: ${LABEL_COLORS[e.label] || 'var(--accent-teal)'};"></span>`).join('')}
+                    ${dayEvents.slice(0, 3).map(e => `<span class="cal-dot" style="background: ${window.LABEL_COLORS[e.label] || 'var(--accent-teal)'};"></span>`).join('')}
                     ${dayEvents.length > 3 ? `<span style="font-size: 0.6rem; color: var(--text-muted); line-height: 1;">+</span>` : ''}
                 </div>
             </div>

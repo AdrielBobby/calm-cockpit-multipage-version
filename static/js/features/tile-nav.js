@@ -80,18 +80,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         in_progress: 'var(--accent-yellow)',
                         done: 'var(--accent-teal)'
                     };
-                    const LABEL_COLORS = {
-                        Personal: '#bb86fc',
-                        Exam: '#cf6679',
-                        Project: '#03dac6',
-                        Gym: '#ffb74d',
-                        Study: '#50fb07',
-                        Clg: '#81d4fa'
-                    };
                     let html = '<ul style="list-style:none; padding:0; display:flex; flex-direction:column; gap:8px;">';
                     events.forEach(e => {
                         const dateStr = new Date(e.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                        const accentColor = LABEL_COLORS[e.label] || 'var(--accent-teal)';
+                        const accentColor = window.LABEL_COLORS[e.label] || 'var(--accent-teal)';
                         const statusColor = STATUS_COLORS[e.status] || 'var(--text-muted)';
                         const statusLabel = (e.status || 'planned').replace('_', ' ');
                         html += `

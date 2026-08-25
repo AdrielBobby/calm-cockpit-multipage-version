@@ -114,11 +114,12 @@ def index():
         "SELECT date, label FROM events WHERE date LIKE ?", (month_str + '%',)
     ).fetchall()
     
-    # Map label to colors (matching calendar-modal.js)
+    # Map label to colors — must stay in sync with window.LABEL_COLORS in static/js/main.js
     label_colors = {
-        'Personal': '#bb86fc', 
-        'Exam': '#cf6679', 
-        'Project': '#ffb74d', 
+        'Personal': '#bb86fc',
+        'Exam': '#cf6679',
+        'Project': '#ffb74d',
+        'Gym': '#03dac6',
         'Study': '#50fb07',
         'Clg': '#81d4fa'
     }
