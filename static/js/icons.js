@@ -13,7 +13,7 @@
     const ICONS = {
         check: '<polyline points="20 6 9 17 4 12"></polyline>',
         x: '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
-        'refresh-cw': '<polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.5"></path>',
+        'refresh-cw': '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>',
         'chevron-left': '<polyline points="15 18 9 12 15 6"></polyline>',
         'chevron-right': '<polyline points="9 18 15 12 9 6"></polyline>',
         umbrella: '<path d="M22 12a10.06 10.06 1 0 0-20 0Z"></path><path d="M12 12v8a2 2 0 0 0 4 0"></path><path d="M12 2v3"></path>',
