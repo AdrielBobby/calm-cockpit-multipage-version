@@ -176,6 +176,17 @@ def get_iso_week_key(dt, day_name):
     return f"{iso_year}-W{iso_week:02d}-{day_name}"
 
 # ── Unified attendance aggregation helper ─────────────────────────
+def _normalize_time(t):
+    """Zero-pad an 'H:MM' time string to 'HH:MM' so slot keys from
+    free-text override entries (e.g. '8:30') match the canonical
+    zero-padded format used by the timetable (e.g. '08:30')."""
+    if not t:
+        return t
+    hour, sep, rest = t.partition(':')
+    if not sep or not hour.isdigit():
+        return t
+    return f"{int(hour):02d}:{rest}"
+
 def _get_attendance_counts(db, subject_id, start_date=None, end_date=None):
     """
     Aggregate attended/missed counts for a subject from BOTH tables:
@@ -233,11 +244,11 @@ def _get_attendance_counts(db, subject_id, start_date=None, end_date=None):
     # Merge: override takes precedence over base for the same slot key
     slots = {}  # (date, start_time) -> status
     for r in base_rows:
-        key = (r['date'], r['start_time'])
+        key = (r['date'], _normalize_time(r['start_time']))
         slots[key] = r['status']
     for r in ov_rows:
         # Override row wins — written last, reflects confirmed state
-        key = (r['date'], r['start_time'])
+        key = (r['date'], _normalize_time(r['start_time']))
         slots[key] = r['status']
 
     attended = sum(1 for s in slots.values() if s == 'attended')
@@ -646,10 +657,10 @@ def get_attendance_window():
         slots = {}
         for r in base_rows:
             if r['date'] not in holiday_dates:
-                slots[(r['date'], r['start_time'])] = r['status']
+                slots[(r['date'], _normalize_time(r['start_time']))] = r['status']
         for r in ov_rows:
             if r['date'] not in holiday_dates:
-                slots[(r['date'], r['start_time'])] = r['status']  # override wins
+                slots[(r['date'], _normalize_time(r['start_time']))] = r['status']  # override wins
 
         attended = sum(1 for s in slots.values() if s == 'attended')
         missed   = sum(1 for s in slots.values() if s == 'missed')
@@ -797,6 +808,7 @@ def get_attendance():
             "subject": sub['name'],
             "percentage": percentage,
             "missed": missed,
+            "total": total,
             "remaining": 0  # Not calculated in current schema
         })
     return jsonify({"status": "success", "data": data})

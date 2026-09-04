@@ -39,6 +39,7 @@ function renderBySubjectView(data) {
                     <th style="padding: 12px 8px;">Subject</th>
                     <th style="padding: 12px 8px;">Attendance</th>
                     <th style="padding: 12px 8px;">Missed</th>
+                    <th style="padding: 12px 8px;">Total Classes</th>
                 </tr>
             </thead>
             <tbody>
@@ -56,6 +57,7 @@ function renderBySubjectView(data) {
                 </td>
                 <td style="padding: 12px 8px; color: ${color}; font-weight: bold;">${item.percentage}%</td>
                 <td style="padding: 12px 8px; color: var(--text-muted);">${item.missed} classes</td>
+                <td style="padding: 12px 8px; color: var(--text-muted);">${item.total} classes</td>
             </tr>
         `;
     });
