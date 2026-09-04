@@ -13,6 +13,7 @@ window.loadAttendanceModal = async function(modalBody) {
                     <button class="att-tab active" onclick="switchAttendanceTab('subject', this)" style="background:transparent; border:none; color:var(--text-main); font-weight:bold; cursor:pointer; padding: 8px 16px;">By Subject</button>
                     <button class="att-tab" onclick="switchAttendanceTab('window', this)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding: 8px 16px;">Window View</button>
                     <button class="att-tab" onclick="switchAttendanceTab('calendar', this)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding: 8px 16px;">Calendar View</button>
+                    <button class="att-tab" onclick="switchAttendanceTab('skippable', this)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding: 8px 16px;">Skippable</button>
                 </div>
                 <button onclick="clearData('attendance')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">Clear All History</button>
             </div>
@@ -58,6 +59,38 @@ function renderBySubjectView(data) {
                 <td style="padding: 12px 8px; color: ${color}; font-weight: bold;">${item.percentage}%</td>
                 <td style="padding: 12px 8px; color: var(--text-muted);">${item.missed} classes</td>
                 <td style="padding: 12px 8px; color: var(--text-muted);">${item.total} classes</td>
+            </tr>
+        `;
+    });
+    html += `</tbody></table>`;
+    return html;
+}
+
+function renderSkippableView(data) {
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--card-border); color: var(--text-muted);">
+                    <th style="padding: 12px 8px;">Subject</th>
+                    <th style="padding: 12px 8px;">Attendance</th>
+                    <th style="padding: 12px 8px;">Skippable Classes</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    data.forEach((item) => {
+        const color = window.attendanceColor(item.percentage);
+        const attended = item.total - item.missed;
+        const skippable = Math.max(0, Math.floor(attended / 0.80 - item.total));
+        const belowGoal = item.percentage < 80;
+        const skipColor = belowGoal ? 'var(--accent-red)' : (skippable > 0 ? 'var(--accent-teal)' : 'var(--text-muted)');
+        const skipLabel = belowGoal ? '0 (below goal)' : `${skippable} classes`;
+
+        html += `
+            <tr style="border-bottom: 1px solid var(--card-border);">
+                <td style="padding: 12px 8px; color: var(--text-main); font-weight: 500;">${item.subject}</td>
+                <td style="padding: 12px 8px; color: ${color}; font-weight: bold;">${item.percentage}%</td>
+                <td style="padding: 12px 8px; color: ${skipColor}; font-weight: bold;">${skipLabel}</td>
             </tr>
         `;
     });
@@ -115,6 +148,8 @@ window.switchAttendanceTab = async function(tab, btn) {
             container.innerHTML = '<p style="color:var(--text-muted);">Heatmap module not loaded.</p>';
         }
 
+    } else if (tab === 'skippable') {
+        container.innerHTML = renderSkippableView(window.attendanceData);
     }
 };
 
