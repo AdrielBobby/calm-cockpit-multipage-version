@@ -46,8 +46,8 @@ def index():
     ]
     
     # --- 2. Attendance Snapshot ---
-    # Uses _get_attendance_counts() which unions base + override_attendance tables
-    # so override-week classes are included in percentages.
+    # Uses _get_attendance_counts() which re-resolves each date via
+    # resolve_day_schedule() so holidays and overrides match the calendar.
     subjects_rows = db.execute('SELECT id, name FROM subjects').fetchall()
     attendance_snapshot = []
     for sub in subjects_rows:
@@ -176,28 +176,18 @@ def get_iso_week_key(dt, day_name):
     return f"{iso_year}-W{iso_week:02d}-{day_name}"
 
 # ── Unified attendance aggregation helper ─────────────────────────
-def _normalize_time(t):
-    """Zero-pad an 'H:MM' time string to 'HH:MM' so slot keys from
-    free-text override entries (e.g. '8:30') match the canonical
-    zero-padded format used by the timetable (e.g. '08:30')."""
-    if not t:
-        return t
-    hour, sep, rest = t.partition(':')
-    if not sep or not hour.isdigit():
-        return t
-    return f"{int(hour):02d}:{rest}"
-
 def _get_attendance_counts(db, subject_id, start_date=None, end_date=None):
     """
-    Aggregate attended/missed counts for a subject from BOTH tables:
-      - attendance      (base timetable slots, joined via timetable.subject_id)
-      - override_attendance  (weekly-override slots, stored directly by subject_id)
+    Aggregate attended/missed counts for a subject by re-resolving each
+    candidate date through resolve_day_schedule() — the same live
+    timetable/weekly_overrides/holidays resolution the Calendar View uses.
 
-    Dedup rule: per (date, start_time, subject_id) slot, if a row exists in
-    *both* tables we take the override_attendance row (higher ROWID = later
-    write, so it reflects the last confirmed state).  This is safe because all
-    38 audited conflict slots have matching status; the one diverging slot
-    (2026-08-05 Remedial) has override_attendance written after the base row.
+    This guarantees the count can never drift from what the calendar shows:
+    holidays are excluded, an override week fully replaces the base schedule
+    for that date (so stale/orphaned override_attendance rows left behind by
+    an edited or reverted override are ignored, just as the calendar ignores
+    them), and a slot always counts toward whichever subject currently owns
+    it in the schedule.
 
     Args:
         subject_id  : integer subject pk
@@ -222,37 +212,37 @@ def _get_attendance_counts(db, subject_id, start_date=None, end_date=None):
         params_base.append(end_date)
         params_override.append(end_date)
 
-    # Collect base-timetable rows: (date, start_time, status)
-    base_rows = db.execute(
-        'SELECT a.date, t.start_time, a.status '
-        'FROM attendance a '
+    # Candidate dates: any date with a recorded mark for this subject in
+    # either table. resolve_day_schedule() below decides what actually counts.
+    base_dates = db.execute(
+        'SELECT DISTINCT a.date FROM attendance a '
         'JOIN timetable t ON a.timetable_id = t.id '
-        'WHERE t.subject_id = ? '
-        + date_filter_base,
+        'WHERE t.subject_id = ? ' + date_filter_base,
         params_base
     ).fetchall()
-
-    # Collect override-attendance rows: (date, start_time, status)
-    ov_rows = db.execute(
-        'SELECT oa.date, oa.start_time, oa.status '
-        'FROM override_attendance oa '
-        'WHERE oa.subject_id = ? '
-        + date_filter_override,
+    ov_dates = db.execute(
+        'SELECT DISTINCT oa.date FROM override_attendance oa '
+        'WHERE oa.subject_id = ? ' + date_filter_override,
         params_override
     ).fetchall()
+    candidate_dates = sorted({r['date'] for r in base_dates} | {r['date'] for r in ov_dates})
 
-    # Merge: override takes precedence over base for the same slot key
-    slots = {}  # (date, start_time) -> status
-    for r in base_rows:
-        key = (r['date'], _normalize_time(r['start_time']))
-        slots[key] = r['status']
-    for r in ov_rows:
-        # Override row wins — written last, reflects confirmed state
-        key = (r['date'], _normalize_time(r['start_time']))
-        slots[key] = r['status']
+    attended = 0
+    missed   = 0
+    for date_str in candidate_dates:
+        if is_date_holiday(db, date_str):
+            continue
+        dt = datetime.strptime(date_str, '%Y-%m-%d')
+        day_name = dt.strftime('%A')
+        week_key = get_iso_week_key(dt, day_name)
+        classes, _, _ = resolve_day_schedule(db, day_name, date_str, week_key)
+        for c in classes:
+            if c['subject_id'] == subject_id and c['counts_for_attendance']:
+                if c['status'] == 'attended':
+                    attended += 1
+                elif c['status'] == 'missed':
+                    missed += 1
 
-    attended = sum(1 for s in slots.values() if s == 'attended')
-    missed   = sum(1 for s in slots.values() if s == 'missed')
     return {"attended": attended, "missed": missed}
 
 def is_date_holiday(db, date_str):
@@ -629,41 +619,13 @@ def get_attendance_window():
         return jsonify({"error": "Start and end dates required"}), 400
 
     db = get_db()
-    # Build set of holiday dates for exclusion
-    holiday_rows = db.execute('SELECT date FROM holidays').fetchall()
-    holiday_dates = {r['date'] for r in holiday_rows}
-
     subjects = db.execute('SELECT id, name FROM subjects').fetchall()
     data = []
     for sub in subjects:
         counts = _get_attendance_counts(db, sub['id'],
                                         start_date=start_str, end_date=end_str)
-        # Re-run with holiday exclusion: re-fetch raw slots and filter
-        # (helper returns merged dict; we need to exclude holiday dates explicitly)
-        base_rows = db.execute(
-            'SELECT a.date, t.start_time, a.status '
-            'FROM attendance a '
-            'JOIN timetable t ON a.timetable_id = t.id '
-            'WHERE t.subject_id = ? AND a.date BETWEEN ? AND ?',
-            (sub['id'], start_str, end_str)
-        ).fetchall()
-        ov_rows = db.execute(
-            'SELECT oa.date, oa.start_time, oa.status '
-            'FROM override_attendance oa '
-            'WHERE oa.subject_id = ? AND oa.date BETWEEN ? AND ?',
-            (sub['id'], start_str, end_str)
-        ).fetchall()
-
-        slots = {}
-        for r in base_rows:
-            if r['date'] not in holiday_dates:
-                slots[(r['date'], _normalize_time(r['start_time']))] = r['status']
-        for r in ov_rows:
-            if r['date'] not in holiday_dates:
-                slots[(r['date'], _normalize_time(r['start_time']))] = r['status']  # override wins
-
-        attended = sum(1 for s in slots.values() if s == 'attended')
-        missed   = sum(1 for s in slots.values() if s == 'missed')
+        attended = counts['attended']
+        missed   = counts['missed']
         total    = attended + missed
         percentage = round((attended / total) * 100, 1) if total > 0 else 0
 
