@@ -164,9 +164,17 @@ def get_subjects():
 def update_subject():
     data = request.json
     db = get_db()
-    db.execute('UPDATE subjects SET name = ?, short_name = ? WHERE id = ?', 
-               (data.get('name'), data.get('short_name'), data.get('id')))
-    db.commit()
+    # Only touch the fields the caller actually sent, so renaming from the
+    # attendance modal (name only) doesn't wipe short_name (and vice versa).
+    fields, params = [], []
+    for col in ('name', 'short_name'):
+        if col in data:
+            fields.append(f'{col} = ?')
+            params.append(data[col])
+    if fields:
+        db.execute(f'UPDATE subjects SET {", ".join(fields)} WHERE id = ?',
+                   (*params, data.get('id')))
+        db.commit()
     return jsonify({"status": "success"})
 
 # ── ISO week key helpers ──────────────────────────────────────────
@@ -254,7 +262,12 @@ def cleanup_old_overrides(db):
     cutoff = datetime.now() - timedelta(weeks=4)
     cutoff_year, cutoff_week, _ = cutoff.isocalendar()
     # Collect all distinct week_keys and delete outdated ones
-    rows = db.execute('SELECT DISTINCT week_key FROM weekly_overrides').fetchall()
+    # Include keys that only survive in override_attendance (orphans left by an
+    # earlier revert) so their marks are purged along with expired overrides.
+    rows = db.execute(
+        'SELECT week_key FROM weekly_overrides '
+        'UNION SELECT week_key FROM override_attendance'
+    ).fetchall()
     for row in rows:
         key = row['week_key']  # e.g. "2026-W25-Monday"
         parts = key.split('-W')
@@ -268,6 +281,7 @@ def cleanup_old_overrides(db):
         # Compare by year then week number
         if (key_year, key_week) < (cutoff_year, cutoff_week):
             db.execute('DELETE FROM weekly_overrides WHERE week_key = ?', (key,))
+            db.execute('DELETE FROM override_attendance WHERE week_key = ?', (key,))
     db.commit()
 
 def resolve_day_schedule(db, day_name, date_str, week_key):
@@ -506,6 +520,9 @@ def delete_timetable_override(week_key):
     """Remove all override rows for a given week_key (revert to base)."""
     db = get_db()
     db.execute('DELETE FROM weekly_overrides WHERE week_key = ?', (week_key,))
+    # Marks for a reverted override are already ignored by the counts; drop them
+    # so they can't resurface if the same slot is overridden again later.
+    db.execute('DELETE FROM override_attendance WHERE week_key = ?', (week_key,))
     db.commit()
     return jsonify({"status": "success"})
 
@@ -631,9 +648,11 @@ def get_attendance_window():
 
         if total > 0:
             data.append({
+                "id": sub['id'],
                 "subject": sub['name'],
                 "percentage": percentage,
                 "attended": attended,
+                "missed": missed,
                 "total": total
             })
     return jsonify({"status": "success", "data": data})
@@ -767,6 +786,7 @@ def get_attendance():
         total    = attended + missed
         percentage = round((attended / total) * 100, 1) if total > 0 else 0
         data.append({
+            "id": sub['id'],
             "subject": sub['name'],
             "percentage": percentage,
             "missed": missed,
