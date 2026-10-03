@@ -76,10 +76,8 @@
 
         <div class="tile tile-4-col" id="tile-grades">
             <div class="tile-header">
-                <button class="tile-nav-btn" id="grades-tile-prev" onclick="gradesTileNav(-1)" aria-label="Previous view" disabled>&#8249;</button>
                 <h2 class="tile-title" id="grades-tile-label">Grades Snapshot</h2>
-                <button class="tile-nav-btn" id="grades-tile-next" onclick="gradesTileNav(1)" aria-label="Next view">&#8250;</button>
-                <button class="btn-action" data-modal="modal-grades">...</button>
+                <a class="btn-action" href="{{ url_for('academics') }}" aria-label="Open Academics" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;">...</a>
             </div>
             <div class="tile-content" id="grades-tile-content">
                 {% if grades %}
@@ -95,7 +93,7 @@
                         {% for sem in grades.history[:4] %}
                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
                             <td style="padding: 8px 4px;">Semester {{ sem.number }}</td>
-                            <td style="text-align: right; padding: 8px 4px; font-weight: 600;">{{ sem.sgpa }}</td>
+                            <td style="text-align: right; padding: 8px 4px; font-weight: 600;">{{ sem.sgpa if sem.sgpa is not none else '&mdash;' }}</td>
                         </tr>
                         {% endfor %}
                     </table>
@@ -237,9 +235,8 @@
     <script src="{{ url_for('static', filename='js/features/attendance-heatmap.js') }}?v=12"></script>
     <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=12"></script>
     <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=12"></script>
-    <script src="{{ url_for('static', filename='js/features/grades-ese.js') }}?v=12"></script>
     <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=12"></script>
     <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=13"></script>
-    <script src="{{ url_for('static', filename='js/modals.js') }}?v=13"></script>
+    <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=14"></script>
+    <script src="{{ url_for('static', filename='js/modals.js') }}?v=14"></script>
 {% endblock %}

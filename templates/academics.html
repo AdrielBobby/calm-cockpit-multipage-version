@@ -1,10 +1,113 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <main class="view-placeholder">
-        <div class="tile">
-            <h2>Academics</h2>
-            <p style="color: var(--text-muted); margin-top: 8px;">Marks, SGPA history and graphs are coming soon.</p>
+    <main class="acad-page">
+        <header class="acad-header">
+            <h1 class="acad-title">Academics</h1>
+            <div class="acad-cgpa">
+                <span class="acad-cgpa-label">Cumulative CGPA</span>
+                <span class="acad-cgpa-value" id="acad-cgpa">&mdash;</span>
+            </div>
+        </header>
+
+        <p class="acad-status" id="acad-status" role="status" aria-live="polite"></p>
+
+        <div class="acad-grid">
+            <section class="tile acad-chart-card">
+                <div class="tile-header"><h2>SGPA Trend</h2></div>
+                <div class="acad-chart-wrap">
+                    <canvas id="acad-sgpa-chart" role="img" aria-label="SGPA per semester line chart"></canvas>
+                    <p class="acad-empty" id="acad-chart-empty" hidden>Add a semester to see your SGPA trend.</p>
+                </div>
+            </section>
+
+            <section class="tile acad-sem-card">
+                <div class="tile-header"><h2>Semesters</h2></div>
+                <form class="acad-form-row" id="acad-sem-form">
+                    <label class="acad-field">
+                        <span>Sem #</span>
+                        <input class="acad-input" type="number" id="acad-new-sem-num" min="1" step="1" required>
+                    </label>
+                    <label class="acad-field">
+                        <span>SGPA</span>
+                        <input class="acad-input" type="number" id="acad-new-sem-sgpa" min="0" max="10" step="0.01" required>
+                    </label>
+                    <button class="acad-btn acad-btn-primary" type="submit">Save</button>
+                </form>
+                <table class="acad-table">
+                    <thead><tr><th>Semester</th><th>SGPA</th><th class="acad-col-action"><span class="acad-sr">Actions</span></th></tr></thead>
+                    <tbody id="acad-sem-body"></tbody>
+                </table>
+            </section>
+
+            <section class="tile acad-marks-card">
+                <div class="tile-header">
+                    <h2>Marks</h2>
+                    <label class="acad-field acad-field-inline">
+                        <span>Semester</span>
+                        <select class="acad-input" id="acad-marks-sem"></select>
+                    </label>
+                    <button class="acad-btn acad-btn-ghost" type="button" id="acad-add-sem-btn" aria-expanded="false" aria-controls="acad-marks-sem-form">+ Add semester</button>
+                </div>
+                <form class="acad-form-row" id="acad-marks-sem-form" hidden>
+                    <label class="acad-field">
+                        <span>New sem #</span>
+                        <input class="acad-input" type="number" id="acad-marks-new-sem-num" min="1" step="1" required>
+                    </label>
+                    <label class="acad-field">
+                        <span>SGPA (optional)</span>
+                        <input class="acad-input" type="number" id="acad-marks-new-sem-sgpa" min="0" max="10" step="0.01">
+                    </label>
+                    <button class="acad-btn acad-btn-primary" type="submit">Create semester</button>
+                    <button class="acad-btn acad-btn-ghost" type="button" id="acad-marks-sem-cancel">Cancel</button>
+                </form>
+                <form class="acad-form-row" id="acad-subject-form">
+                    <label class="acad-field acad-field-grow">
+                        <span>New subject</span>
+                        <input class="acad-input" type="text" id="acad-new-subject" placeholder="e.g. Operating Systems" maxlength="60" required>
+                    </label>
+                    <button class="acad-btn acad-btn-primary" type="submit">Add subject</button>
+                </form>
+                <div class="acad-table-scroll">
+                    <table class="acad-table acad-marks-table">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Internal</th>
+                                <th>Sessional</th>
+                                <th>End-sem</th>
+                                <th class="acad-col-action"><span class="acad-sr">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="acad-marks-body"></tbody>
+                    </table>
+                </div>
+                <p class="acad-hint">Edits save automatically. Each mark is out of the max beside it (editable).</p>
+            </section>
+
+            <section class="tile acad-ese-card">
+                <div class="tile-header"><h2>ESE Requirement Calculator</h2></div>
+                <div class="ese-input-grid">
+                    <input type="text" id="eseSubjectName" placeholder="Subject Name">
+                    <input type="number" id="eseCurrentMarks" placeholder="Current Marks">
+                    <input type="number" id="eseMaxSessional" placeholder="Max Sessional" value="50">
+                    <input type="number" id="eseMaxESE" placeholder="Max ESE" value="100">
+                </div>
+                <div class="ese-type-row">
+                    <button type="button" class="ese-preset-btn type-btn" data-preset="theory">Theory</button>
+                    <button type="button" class="ese-preset-btn type-btn" data-preset="integrated">Integrated</button>
+                    <button type="button" class="ese-preset-btn type-btn" data-preset="lab">Lab</button>
+                    <button type="button" id="eseAddSubjectBtn" class="add-subject-btn">Add Subject</button>
+                </div>
+                <div id="eseSubjectsContainer" class="ese-subjects-container">
+                    <p class="ese-empty-state">Loading subjects...</p>
+                </div>
+            </section>
         </div>
     </main>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="{{ url_for('static', filename='js/features/academics.js') }}?v=2"></script>
 {% endblock %}

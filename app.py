@@ -60,7 +60,7 @@ def index():
 
     # --- 3. Grades Snapshot ---
     semesters_rows = db.execute('SELECT number, sgpa FROM semesters ORDER BY number DESC').fetchall()
-    cgpa = round(sum(r['sgpa'] for r in semesters_rows) / len(semesters_rows), 2) if semesters_rows else 0
+    cgpa = _cgpa(semesters_rows)
     grades_data = {
         "cgpa": cgpa,
         "history": [{"number": r['number'], "sgpa": r['sgpa']} for r in semesters_rows]
@@ -1077,64 +1077,6 @@ def get_calendar_events():
     data = [dict(r) for r in rows]
     return jsonify({"status": "success", "data": data})
 
-@app.route('/api/grades/subjects', methods=['GET'])
-def get_grade_subjects():
-    db = get_db()
-    latest_sem = db.execute('SELECT id FROM semesters ORDER BY id DESC LIMIT 1').fetchone()
-    if not latest_sem:
-        return jsonify({"status": "success", "data": []})
-    
-    rows = db.execute('SELECT subject_index, name FROM grade_subject_names WHERE semester_id = ?', (latest_sem['id'],)).fetchall()
-    return jsonify({"status": "success", "data": [dict(r) for r in rows]})
-
-@app.route('/api/grades/subjects/add', methods=['POST'])
-def add_grade_subject():
-    data = request.json
-    db = get_db()
-    latest_sem = db.execute('SELECT id FROM semesters ORDER BY id DESC LIMIT 1').fetchone()
-    if not latest_sem: return jsonify({"error": "No semester found"}), 400
-    
-    # Get next index
-    idx_row = db.execute('SELECT MAX(subject_index) FROM grade_subject_names WHERE semester_id = ?', (latest_sem['id'],)).fetchone()
-    next_idx = (idx_row[0] + 1) if idx_row[0] is not None else 0
-    
-    db.execute('INSERT INTO grade_subject_names (semester_id, subject_index, name) VALUES (?, ?, ?)',
-               (latest_sem['id'], next_idx, data.get('name')))
-    db.commit()
-    return jsonify({"status": "success"})
-
-@app.route('/api/grades/subjects/update', methods=['POST'])
-def update_grade_subject():
-    data = request.json
-    db = get_db()
-    latest_sem = db.execute('SELECT id FROM semesters ORDER BY id DESC LIMIT 1').fetchone()
-    if not latest_sem: return jsonify({"error": "No semester found"}), 400
-    
-    db.execute('UPDATE grade_subject_names SET name = ? WHERE semester_id = ? AND subject_index = ?',
-               (data.get('name'), latest_sem['id'], data.get('subject_index')))
-    db.commit()
-    return jsonify({"status": "success"})
-
-@app.route('/api/grades/internals/update', methods=['POST'])
-def update_internal_mark():
-    """
-    Save the single internal mark for a subject.
-    Always writes to internal_number = 1 (the canonical internal under the new model).
-    The 'internal_number' field is no longer accepted from the client.
-    """
-    data = request.json
-    db = get_db()
-    latest_sem = db.execute('SELECT id FROM semesters ORDER BY id DESC LIMIT 1').fetchone()
-    if not latest_sem: return jsonify({"error": "No semester found"}), 400
-
-    db.execute('''
-        INSERT INTO internal_marks (semester_id, subject_index, internal_number, mark)
-        VALUES (?, ?, 1, ?)
-        ON CONFLICT(semester_id, subject_index, internal_number) DO UPDATE SET mark=excluded.mark
-    ''', (latest_sem['id'], data.get('subject_index'), data.get('mark')))
-    db.commit()
-    return jsonify({"status": "success"})
-
 # --- Clear Data Routes ---
 
 @app.route('/api/attendance/clear', methods=['DELETE'])
@@ -1159,77 +1101,11 @@ def clear_goals():
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/grades/clear/history', methods=['DELETE'])
-def clear_grades_history():
-    db = get_db()
-    db.execute('DELETE FROM semesters')
-    db.commit()
-    return jsonify({"status": "success"})
-
-@app.route('/api/grades/clear/internals', methods=['DELETE'])
-def clear_grades_internals():
-    db = get_db()
-    db.execute('DELETE FROM internal_marks')
-    db.execute('DELETE FROM grade_subject_names')
-    db.commit()
-    return jsonify({"status": "success"})
-
-@app.route('/api/grades/internals', methods=['GET'])
-def get_internal_marks():
-    """
-    Return one internal mark per subject for the latest semester.
-
-    Prefer internal_number = 1 (the canonical internal under the new model).
-    If a subject only has an internal_number = 2 row (legacy data from the
-    old two-internal model), fall back to that row rather than returning null.
-    All new writes go to internal_number = 1.
-
-    Response shape:
-        { "data": { "Subject Name": { "mark": 45.0 }, ... } }
-    """
-    db = get_db()
-    latest_sem = db.execute('SELECT id FROM semesters ORDER BY id DESC LIMIT 1').fetchone()
-    if not latest_sem:
-        return jsonify({"status": "success", "data": {}})
-
-    rows = db.execute('''
-        SELECT g.name, i.mark, i.internal_number
-        FROM internal_marks i
-        JOIN grade_subject_names g
-            ON i.semester_id = g.semester_id AND i.subject_index = g.subject_index
-        WHERE i.semester_id = ?
-        ORDER BY i.internal_number ASC
-    ''', (latest_sem['id'],)).fetchall()
-
-    # Build flat dict: prefer internal_number=1; fallback to =2 for legacy subjects
-    # that were saved before the single-internal migration.
-    subjects = {}  # { name: mark }
-    for r in rows:
-        name = r['name']
-        if name not in subjects:
-            # First encounter (lowest internal_number first due to ORDER BY)
-            subjects[name] = r['mark']
-        elif r['internal_number'] == 1:
-            # Prefer internal_number=1 if we already inserted a =2 fallback
-            subjects[name] = r['mark']
-
-    return jsonify({"status": "success", "data": {
-        name: {"mark": mark} for name, mark in subjects.items()
-    }})
-
-@app.route('/api/grades/add', methods=['POST'])
-def add_semester():
-    data = request.json
-    db = get_db()
-    db.execute('INSERT INTO semesters (number, sgpa) VALUES (?, ?)', (data.get('number'), data.get('sgpa')))
-    db.commit()
-    return jsonify({"status": "success"})
-
 @app.route('/api/grades/history', methods=['GET'])
 def get_grades_history():
     db = get_db()
     semesters_rows = db.execute('SELECT number, sgpa FROM semesters ORDER BY number DESC').fetchall()
-    cgpa = round(sum(r['sgpa'] for r in semesters_rows) / len(semesters_rows), 2) if semesters_rows else 0
+    cgpa = _cgpa(semesters_rows)
     return jsonify({
         "status": "success",
         "data": {
@@ -1237,6 +1113,132 @@ def get_grades_history():
             "history": [{"number": r['number'], "sgpa": r['sgpa']} for r in semesters_rows]
         }
     })
+
+# --- Academics Routes ---
+
+MARK_COMPONENTS = ('internal', 'sessional', 'end_sem')
+DEFAULT_MAX_MARK = {'internal': 50, 'sessional': 50, 'end_sem': 100}
+
+def _cgpa(rows):
+    scored = [r['sgpa'] for r in rows if r['sgpa'] is not None]
+    return round(sum(scored) / len(scored), 2) if scored else 0
+
+@app.route('/api/academics/semesters', methods=['GET'])
+def academics_get_semesters():
+    db = get_db()
+    rows = db.execute('SELECT id, number, sgpa FROM semesters ORDER BY number ASC').fetchall()
+    return jsonify({"status": "success", "data": {
+        "cgpa": _cgpa(rows),
+        "semesters": [dict(r) for r in rows]
+    }})
+
+@app.route('/api/academics/semesters', methods=['POST'])
+def academics_upsert_semester():
+    data = request.json or {}
+    try:
+        number = int(data.get('number'))
+        sgpa = None if data.get('sgpa') in (None, '') else float(data['sgpa'])
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "number must be an integer and sgpa a number"}), 400
+    if number < 1 or (sgpa is not None and not (0 <= sgpa <= 10)):
+        return jsonify({"status": "error", "message": "number must be >= 1 and sgpa between 0 and 10"}), 400
+    db = get_db()
+    # A missing sgpa creates the semester without one and never wipes an existing value.
+    db.execute('''
+        INSERT INTO semesters (number, sgpa) VALUES (?, ?)
+        ON CONFLICT(number) DO UPDATE SET sgpa = COALESCE(excluded.sgpa, semesters.sgpa)
+    ''', (number, sgpa))
+    db.commit()
+    row = db.execute('SELECT id FROM semesters WHERE number = ?', (number,)).fetchone()
+    return jsonify({"status": "success", "id": row['id']})
+
+@app.route('/api/academics/semesters/<int:semester_id>', methods=['DELETE'])
+def academics_delete_semester(semester_id):
+    db = get_db()
+    db.execute('DELETE FROM semester_marks WHERE semester_id = ?', (semester_id,))
+    db.execute('DELETE FROM semesters WHERE id = ?', (semester_id,))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/academics/marks', methods=['GET'])
+def academics_get_marks():
+    semester_id = request.args.get('semester_id', type=int)
+    if semester_id is None:
+        return jsonify({"status": "error", "message": "semester_id is required"}), 400
+    db = get_db()
+    rows = db.execute('''
+        SELECT subject_name, component, mark, max_mark FROM semester_marks
+        WHERE semester_id = ? ORDER BY id ASC
+    ''', (semester_id,)).fetchall()
+    subjects = {}
+    for r in rows:
+        entry = subjects.setdefault(r['subject_name'], {"name": r['subject_name']})
+        entry[r['component']] = {"mark": r['mark'], "max": r['max_mark']}
+    return jsonify({"status": "success", "data": list(subjects.values())})
+
+@app.route('/api/academics/marks', methods=['PUT'])
+def academics_put_mark():
+    data = request.json or {}
+    component = data.get('component')
+    name = (data.get('subject_name') or '').strip()
+    if component not in MARK_COMPONENTS or not name or data.get('semester_id') is None:
+        return jsonify({"status": "error", "message": "semester_id, subject_name and a valid component are required"}), 400
+    try:
+        mark = None if data.get('mark') in (None, '') else float(data['mark'])
+        max_mark = float(data['max_mark']) if data.get('max_mark') not in (None, '') else DEFAULT_MAX_MARK[component]
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "mark and max_mark must be numbers"}), 400
+    if max_mark <= 0 or (mark is not None and (mark < 0 or mark > max_mark)):
+        return jsonify({"status": "error", "message": "mark must be between 0 and max_mark"}), 400
+    db = get_db()
+    db.execute('''
+        INSERT INTO semester_marks (semester_id, subject_name, component, mark, max_mark)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(semester_id, subject_name, component)
+        DO UPDATE SET mark = excluded.mark, max_mark = excluded.max_mark
+    ''', (data['semester_id'], name, component, mark, max_mark))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/academics/marks', methods=['DELETE'])
+def academics_delete_subject():
+    data = request.json or {}
+    db = get_db()
+    db.execute('DELETE FROM semester_marks WHERE semester_id = ? AND subject_name = ?',
+               (data.get('semester_id'), data.get('subject_name')))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/academics/subjects', methods=['POST'])
+def academics_add_subject():
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    if not name or data.get('semester_id') is None:
+        return jsonify({"status": "error", "message": "semester_id and name are required"}), 400
+    db = get_db()
+    for component in MARK_COMPONENTS:
+        db.execute('''
+            INSERT OR IGNORE INTO semester_marks (semester_id, subject_name, component, mark, max_mark)
+            VALUES (?, ?, ?, NULL, ?)
+        ''', (data['semester_id'], name, component, DEFAULT_MAX_MARK[component]))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/academics/subjects', methods=['PATCH'])
+def academics_rename_subject():
+    data = request.json or {}
+    new_name = (data.get('new_name') or '').strip()
+    if not new_name or data.get('semester_id') is None or not data.get('old_name'):
+        return jsonify({"status": "error", "message": "semester_id, old_name and new_name are required"}), 400
+    db = get_db()
+    clash = db.execute('SELECT 1 FROM semester_marks WHERE semester_id = ? AND subject_name = ?',
+                       (data['semester_id'], new_name)).fetchone()
+    if clash and new_name != data['old_name']:
+        return jsonify({"status": "error", "message": "A subject with that name already exists"}), 409
+    db.execute('UPDATE semester_marks SET subject_name = ? WHERE semester_id = ? AND subject_name = ?',
+               (new_name, data['semester_id'], data['old_name']))
+    db.commit()
+    return jsonify({"status": "success"})
 
 # --- ESE Calculator Routes ---
 
@@ -1335,9 +1337,71 @@ def _migrate_weekly_overrides_nullable(db):
     ''')
 
 
+def _migrate_semester_marks(db):
+    """Create semester_marks; on first creation, copy legacy internal marks into it."""
+    existed = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='semester_marks'"
+    ).fetchone()
+    db.execute('''
+        CREATE TABLE IF NOT EXISTS semester_marks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            semester_id INTEGER NOT NULL,
+            subject_name TEXT NOT NULL,
+            component TEXT NOT NULL CHECK(component IN ('internal', 'sessional', 'end_sem')),
+            mark REAL,
+            max_mark REAL NOT NULL,
+            UNIQUE (semester_id, subject_name, component)
+        )
+    ''')
+    if existed:
+        return
+    # Legacy data: prefer internal_number = 1, fall back to 2 (first row wins via OR IGNORE).
+    subjects = db.execute('SELECT semester_id, subject_index, name FROM grade_subject_names').fetchall()
+    for s in subjects:
+        legacy = db.execute('''
+            SELECT mark FROM internal_marks
+            WHERE semester_id = ? AND subject_index = ?
+            ORDER BY internal_number ASC LIMIT 1
+        ''', (s['semester_id'], s['subject_index'])).fetchone()
+        mark = legacy['mark'] if legacy else None
+        for component in MARK_COMPONENTS:
+            db.execute('''
+                INSERT OR IGNORE INTO semester_marks (semester_id, subject_name, component, mark, max_mark)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (s['semester_id'], s['name'], component,
+                  mark if component == 'internal' else None, DEFAULT_MAX_MARK[component]))
+    db.commit()
+
+
 def init_db_schema():
     with app.app_context():
         db = get_db()
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS semesters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                number INTEGER UNIQUE NOT NULL,
+                sgpa REAL
+            )
+        ''')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS grade_subject_names (
+                semester_id INTEGER,
+                subject_index INTEGER,
+                name TEXT,
+                PRIMARY KEY (semester_id, subject_index)
+            )
+        ''')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS internal_marks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                semester_id INTEGER,
+                subject_index INTEGER,
+                internal_number INTEGER,
+                mark REAL,
+                UNIQUE (semester_id, subject_index, internal_number)
+            )
+        ''')
+        _migrate_semester_marks(db)
         db.execute('''
             CREATE TABLE IF NOT EXISTS ese_calculator_subjects (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

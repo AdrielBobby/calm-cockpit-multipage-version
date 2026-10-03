@@ -115,64 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ── Grades Tile ─────────────────────────────────────────────────
-    let gradesTileIdx = 0;
-    const gradesTileMax = 2;
-    let gradesTileCache = {};
-
-    const gradesTileContent = document.getElementById('grades-tile-content');
-    if (gradesTileContent) {
-        gradesTileCache[0] = gradesTileContent.innerHTML;
-        initTileSwipe(gradesTileContent, () => window.gradesTileNav(1), () => window.gradesTileNav(-1));
-    }
-
-    window.gradesTileNav = async function(dir) {
-        gradesTileIdx += dir;
-        if (gradesTileIdx < 0) gradesTileIdx = 0;
-        if (gradesTileIdx > gradesTileMax) gradesTileIdx = gradesTileMax;
-
-        // Expose current index globally so refreshGradesSnapshot() can
-        // re-render whichever view is active without resetting to idx 0.
-        window._gradesTileIdx = gradesTileIdx;
-
-        const prevBtn = document.getElementById('grades-tile-prev');
-        const nextBtn = document.getElementById('grades-tile-next');
-        const labelEl = document.getElementById('grades-tile-label');
-        const content = document.getElementById('grades-tile-content');
-
-        if (prevBtn) prevBtn.disabled = (gradesTileIdx === 0);
-        if (nextBtn) nextBtn.disabled = (gradesTileIdx === gradesTileMax);
-
-        if (gradesTileIdx === 0) {
-            if (labelEl) labelEl.textContent = "Grades Snapshot";
-            content.innerHTML = gradesTileCache[0];
-            return;
-        }
-
-        if (gradesTileIdx === 1) {
-            if (labelEl) labelEl.textContent = "Internal Grades";
-            // Use global render function exposed in grades-ese.js
-            if (window.renderInternalsTab) {
-                await window.renderInternalsTab(content);
-            } else {
-                content.innerHTML = '<p style="color:var(--accent-red); font-size:0.82rem;">Feature loading...</p>';
-            }
-            return;
-        }
-
-        if (gradesTileIdx === 2) {
-            if (labelEl) labelEl.textContent = "ESE Calculator";
-            // Use global render function exposed in grades-ese.js
-            if (window.renderEseTab) {
-                window.renderEseTab(content);
-                if (window.fetchEseSubjects) window.fetchEseSubjects();
-            } else {
-                content.innerHTML = '<p style="color:var(--accent-red); font-size:0.82rem;">Feature loading...</p>';
-            }
-            return;
-        }
-    };
-
     // ── Projects Tile ────────────────────────────────────────────────
     let projTileIdx = 0;
     const projTileMax = 1; // 0 = In Progress, 1 = Paused

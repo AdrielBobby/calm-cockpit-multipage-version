@@ -267,8 +267,6 @@ window.refreshGoalsSnapshot = async function() {
 window.clearData = async function(type) {
     if (!confirm(`Are you sure you want to clear all ${type} data? This cannot be undone.`)) return;
     let url = '';
-    if (type === 'grades-history') url = '/api/grades/clear/history';
-    if (type === 'grades-internals') url = '/api/grades/clear/internals';
     if (type === 'attendance') url = '/api/attendance/clear';
     if (type === 'finance') url = '/api/finance/clear';
     if (type === 'goals') url = '/api/goals/clear';
@@ -278,7 +276,6 @@ window.clearData = async function(type) {
         if (response.ok) {
             // Refresh currently open modal content
             const modalBody = document.getElementById('modal-body');
-            if (type.startsWith('grades') && window.loadGradesModal) window.loadGradesModal(modalBody);
             if (type === 'attendance' && window.loadAttendanceModal) window.loadAttendanceModal(modalBody);
             if (type === 'finance' && window.loadFinanceModal) window.loadFinanceModal(modalBody);
             if (type === 'goals' && window.loadGoalsModal) window.loadGoalsModal(modalBody);
@@ -376,34 +373,6 @@ window.generateDashboardGrid = function(year, month, events) {
     });
 };
 
-// ── Grades tile refresh ───────────────────────────────────────────────────────
-// The grades tile has no standalone "refresh" since it can show three different
-// sub-views (Snapshot / Internal Grades / ESE Calculator). This function
-// re-renders whichever view is currently active, preserving the tile's index.
-//
-// tile-nav.js exposes the current index on window so this function can read it:
-//   window._gradesTileIdx  (set by gradesTileNav on each navigation)
-//
-// NOTE: gradesTileCache[0] holds the SSR snapshot HTML. On refresh we re-fetch
-// from /api/grades/snapshot (if the tile is on idx 0) or re-call renderInternalsTab
-// (idx 1) or renderEseTab (idx 2). The cache is NOT invalidated for idx 0 because
-// the grades snapshot is SSR-derived and doesn't have a lightweight client-side
-// re-fetch path — refreshing will just leave idx 0 as-is (acceptable: grades data
-// doesn't change during a session).
-window.refreshGradesSnapshot = async function() {
-    const idx     = window._gradesTileIdx ?? 0;
-    const content = document.getElementById('grades-tile-content');
-    if (!content) return;
-
-    if (idx === 1 && window.renderInternalsTab) {
-        await window.renderInternalsTab(content);
-    } else if (idx === 2 && window.renderEseTab) {
-        window.renderEseTab(content);
-        if (window.fetchEseSubjects) await window.fetchEseSubjects();
-    }
-    // idx === 0: SSR-rendered snapshot — no client-side refresh path, leave as-is.
-};
-
 // ── Refresh all dashboard tiles (mobile refresh button) ───────────────────────
 // Uses Promise.allSettled so one tile's failure doesn't block the rest.
 // Each function is guarded with ?. — if a tile's script hasn't loaded or the
@@ -419,7 +388,6 @@ window.refreshAllTiles = async function() {
         window.refreshAttendanceSnapshot?.(),
         window.refreshFinanceSnapshot?.(),
         window.refreshGoalsSnapshot?.(),
-        window.refreshGradesSnapshot?.(),
         window.refreshProjectsSnapshot?.(),
     ]);
 };

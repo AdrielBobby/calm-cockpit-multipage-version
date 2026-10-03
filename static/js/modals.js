@@ -38,14 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     modalBody.innerHTML = '<p>Attendance module not loaded.</p>';
                 }
                 break;
-            case 'modal-grades':
-                modalTitle.textContent = 'Grades & ESE Calculator';
-                if (window.loadGradesModal) {
-                    window.loadGradesModal(modalBody);
-                } else {
-                    modalBody.innerHTML = '<p>Grades module not loaded.</p>';
-                }
-                break;
             case 'modal-finance':
                 modalTitle.textContent = 'Finance Details';
                 if (window.loadFinanceModal) {
