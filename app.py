@@ -140,8 +140,9 @@ def index():
         "events_by_day": events_by_day
     }
     
-    return render_template('index.html', 
-                           date=now.strftime("%B %d, %Y"), 
+    return render_template('index.html',
+                           active_view='overview',
+                           date=now.strftime("%B %d, %Y"),
                            day=day_name,
                            is_holiday_today=is_holiday_today,
                            timetable=today_timetable,
@@ -151,6 +152,18 @@ def index():
                            goals=weekly_goals,
                            projects=projects_in_progress,
                            calendar=calendar_data)
+
+@app.route('/academics')
+def academics():
+    return render_template('academics.html', active_view='academics')
+
+@app.route('/gym')
+def gym():
+    return render_template('gym.html', active_view='gym')
+
+@app.route('/scrapbook')
+def scrapbook():
+    return render_template('scrapbook.html', active_view='scrapbook')
 
 # --- API Routes ---
 
