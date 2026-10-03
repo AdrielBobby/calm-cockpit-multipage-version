@@ -1,10 +1,126 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <main class="view-placeholder">
-        <div class="tile">
-            <h2>Gym</h2>
-            <p style="color: var(--text-muted); margin-top: 8px;">Workout heatmap and logging are coming soon.</p>
+    <main class="gym-page">
+        <header class="acad-header">
+            <h1 class="acad-title">Gym</h1>
+            <button type="button" class="acad-btn acad-btn-primary" id="gym-log-today">Log today</button>
+        </header>
+
+        <p class="acad-status" id="gym-status" role="status" aria-live="polite"></p>
+
+        <div class="gym-grid">
+            <section class="tile gym-calendar-card">
+                <div class="tile-header"><h2>Workout Calendar</h2></div>
+                <div id="gym-heatmap" class="gym-heatmap"></div>
+            </section>
+
+            <section class="tile gym-side-card">
+                <div class="tile-header"><h2>Overview</h2></div>
+                <div class="gym-stats">
+                    <div class="gym-stat"><span class="gym-stat-value" id="gym-stat-week">&mdash;</span><span class="gym-stat-label">This week</span></div>
+                    <div class="gym-stat"><span class="gym-stat-value" id="gym-stat-month">&mdash;</span><span class="gym-stat-label">This month</span></div>
+                </div>
+                <form class="acad-form-row" id="gym-day-form">
+                    <label class="acad-field acad-field-grow">
+                        <span>Log another day</span>
+                        <input class="acad-input" type="date" id="gym-day-input" required>
+                    </label>
+                    <button class="acad-btn acad-btn-ghost" type="submit">Open</button>
+                </form>
+            </section>
+
+            <section class="tile gym-presets-card">
+                <div class="tile-header">
+                    <h2>Workout Presets</h2>
+                    <button type="button" class="acad-btn acad-btn-ghost" id="gym-new-preset">+ New preset</button>
+                </div>
+                <div id="gym-presets" class="gym-preset-list"></div>
+                <p class="acad-hint">Any preset can be used on any day. The weekday is only a suggestion.</p>
+            </section>
+
+            <section class="tile gym-prs-card">
+                <div class="tile-header"><h2>Personal Records</h2></div>
+                <div id="gym-prs"></div>
+            </section>
         </div>
     </main>
+
+    <!-- Day log modal -->
+    <div class="modal-overlay" id="gym-day-modal" role="dialog" aria-modal="true" aria-labelledby="gym-day-title">
+        <div class="modal-content gym-modal">
+            <div class="modal-header">
+                <h2 id="gym-day-title">Log workout</h2>
+                <button type="button" class="btn-close" id="gym-day-close" aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+            </div>
+            <div class="modal-body">
+                <div class="gym-section-label">Preset</div>
+                <div class="gym-chips" id="gym-preset-chips"></div>
+
+                <div class="gym-section-label">Exercises <span class="gym-unit">(weight in kg)</span></div>
+                <div class="gym-ex-head" aria-hidden="true"><span>Exercise</span><span>Set 1</span><span>Set 2</span><span>Set 3</span><span>kg</span><span></span></div>
+                <div id="gym-exercise-rows"></div>
+                <button type="button" class="acad-btn acad-btn-ghost" id="gym-add-exercise">+ Add exercise</button>
+
+                <div class="gym-bonus">
+                    <label class="gym-check"><input type="checkbox" id="gym-cardio"> <span>Cardio</span></label>
+                    <label class="gym-check"><input type="checkbox" id="gym-steps"> <span>10k+ steps</span></label>
+                </div>
+
+                <label class="acad-field">
+                    <span>Notes</span>
+                    <textarea class="acad-input gym-notes" id="gym-notes" rows="3" maxlength="2000" placeholder="How did it feel?"></textarea>
+                </label>
+
+                <p class="gym-modal-error" id="gym-day-error" role="alert"></p>
+                <div class="gym-modal-actions">
+                    <button type="button" class="acad-btn gym-btn-danger" id="gym-day-delete" hidden>Delete day</button>
+                    <span class="gym-spacer"></span>
+                    <button type="button" class="acad-btn acad-btn-ghost" id="gym-day-cancel">Cancel</button>
+                    <button type="button" class="acad-btn acad-btn-primary" id="gym-day-save">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preset editor modal -->
+    <div class="modal-overlay" id="gym-preset-modal" role="dialog" aria-modal="true" aria-labelledby="gym-preset-title">
+        <div class="modal-content gym-modal compact-modal">
+            <div class="modal-header">
+                <h2 id="gym-preset-title">New preset</h2>
+                <button type="button" class="btn-close" id="gym-preset-close" aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+            </div>
+            <div class="modal-body">
+                <label class="acad-field">
+                    <span>Name</span>
+                    <input class="acad-input" type="text" id="gym-preset-name" maxlength="40" placeholder="e.g. Chest + Triceps">
+                </label>
+                <label class="acad-field">
+                    <span>Suggested weekday (optional)</span>
+                    <select class="acad-input" id="gym-preset-weekday">
+                        <option value="">None</option>
+                        <option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option>
+                        <option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option>
+                        <option value="6">Sunday</option>
+                    </select>
+                </label>
+                <div class="gym-section-label">Exercises</div>
+                <div id="gym-preset-exercises"></div>
+                <button type="button" class="acad-btn acad-btn-ghost" id="gym-preset-add-ex">+ Add exercise</button>
+                <p class="gym-modal-error" id="gym-preset-error" role="alert"></p>
+                <div class="gym-modal-actions">
+                    <span class="gym-spacer"></span>
+                    <button type="button" class="acad-btn acad-btn-ghost" id="gym-preset-cancel">Cancel</button>
+                    <button type="button" class="acad-btn acad-btn-primary" id="gym-preset-save">Save preset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <datalist id="gym-exercise-list"></datalist>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/features/gym-heatmap.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/features/gym.js') }}?v=2"></script>
 {% endblock %}

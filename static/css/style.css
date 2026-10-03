@@ -1740,3 +1740,155 @@ body {
     .view-nav::-webkit-scrollbar { display: none; }
     .view-nav-tab { padding: 10px 12px; }
 }
+
+
+/* ==============================================
+   GYM PAGE
+   ============================================== */
+.gym-page {
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.gym-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 24px;
+    align-items: start;
+}
+.gym-calendar-card { grid-column: span 8; }
+.gym-side-card     { grid-column: span 4; }
+.gym-presets-card,
+.gym-prs-card      { grid-column: span 6; }
+
+.gym-error { color: var(--accent-red); font-size: 0.85rem; }
+
+/* Heatmap: 7 rows (Mon-Sun) and level colours */
+.gym-heatmap .heatmap-day-labels,
+.gym-heatmap .heatmap-grid { grid-template-rows: repeat(7, var(--hm-cell)); }
+.gym-heatmap .heatmap-cell[data-level="0"] { background: var(--bg-color); border: 1px solid rgba(255, 255, 255, 0.04); }
+.gym-heatmap .heatmap-cell[data-level="1"] { background: var(--accent-teal); opacity: 0.4; }
+.gym-heatmap .heatmap-cell[data-level="2"] { background: var(--accent-teal); opacity: 0.7; }
+.gym-heatmap .heatmap-cell[data-level="3"] { background: var(--accent-teal); opacity: 1; }
+.gym-heatmap .heatmap-legend-cell[data-level="0"] { background: var(--bg-color); border: 1px solid rgba(255, 255, 255, 0.08); }
+.gym-heatmap .heatmap-legend-cell[data-level="1"] { background: var(--accent-teal); opacity: 0.4; }
+.gym-heatmap .heatmap-legend-cell[data-level="2"] { background: var(--accent-teal); opacity: 0.7; }
+.gym-heatmap .heatmap-legend-cell[data-level="3"] { background: var(--accent-teal); opacity: 1; }
+
+.gym-stats { display: flex; gap: 16px; margin-bottom: 20px; }
+.gym-stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+}
+.gym-stat-value { font-size: 1.8rem; font-weight: 700; color: var(--accent-teal); line-height: 1.1; }
+.gym-stat-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+/* Presets */
+.gym-preset-list { display: flex; flex-direction: column; gap: 10px; }
+.gym-preset {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+}
+.gym-preset-main { min-width: 0; }
+.gym-preset-ex { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; overflow-wrap: anywhere; }
+.gym-preset-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.gym-badge {
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent-teal);
+    background: rgba(6, 214, 160, 0.1);
+    border-radius: 20px;
+}
+.gym-preset-ex-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+.gym-preset-ex-row .acad-input { flex: 1; min-width: 0; }
+
+/* Modals */
+.modal-content.gym-modal { width: 92%; max-width: 680px; }
+.modal-content.gym-modal.compact-modal { max-width: 460px; }
+.gym-modal .modal-body { display: flex; flex-direction: column; gap: 12px; }
+.gym-section-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.gym-unit { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.gym-hint { font-size: 0.8rem; color: var(--text-muted); }
+
+.gym-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.gym-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.gym-chip:hover { background: rgba(255, 255, 255, 0.08); }
+.gym-chip.is-active { background: var(--accent-teal); border-color: var(--accent-teal); color: var(--bg-color); font-weight: 600; }
+.gym-chip-hint { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.8; }
+
+.gym-ex-head,
+.gym-ex-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 54px 54px 54px 70px 36px;
+    gap: 8px;
+    align-items: start;
+}
+.gym-ex-head { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+#gym-exercise-rows { display: flex; flex-direction: column; gap: 8px; }
+.gym-ex-row .acad-input { width: 100%; }
+.gym-ex-name { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gym-ex-meta { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--text-muted); min-height: 1em; }
+.gym-pr-badge {
+    padding: 1px 7px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--bg-color);
+    background: var(--accent-yellow);
+    border-radius: 20px;
+}
+
+.gym-bonus { display: flex; gap: 20px; flex-wrap: wrap; }
+.gym-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
+.gym-check input { width: 18px; height: 18px; accent-color: var(--accent-teal); }
+.gym-notes { width: 100%; resize: vertical; }
+.gym-modal-error { min-height: 1.1em; font-size: 0.82rem; color: var(--accent-red); }
+.gym-modal-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gym-spacer { flex: 1; }
+.gym-btn-danger { background: transparent; color: var(--accent-red); border: 1px solid var(--accent-red); }
+.gym-btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
+.gym-btn-danger[hidden] { display: none; }
+
+@media (max-width: 1023px) {
+    .gym-calendar-card, .gym-side-card, .gym-presets-card, .gym-prs-card { grid-column: span 12; }
+}
+
+@media (max-width: 767px) {
+    .gym-page { padding: 12px; }
+    .gym-grid { gap: 12px; }
+    .gym-ex-head, .gym-ex-row { grid-template-columns: minmax(0, 1fr) 40px 40px 40px 52px 28px; gap: 4px; }
+    .gym-ex-row .acad-input { padding: 8px 6px; }
+    .gym-preset { flex-direction: column; align-items: flex-start; }
+}
+
+.gym-modal .modal-body > .acad-btn:not(.acad-btn-primary) { align-self: flex-start; }

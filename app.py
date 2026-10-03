@@ -1240,6 +1240,264 @@ def academics_rename_subject():
     db.commit()
     return jsonify({"status": "success"})
 
+# --- Gym Routes ---
+
+def _gym_date(value):
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return None
+
+def _gym_name(value, limit=60):
+    return ' '.join(str(value or '').split())[:limit]
+
+def _gym_number(value, cast, lo, hi):
+    """Optional number: returns (ok, value). Blank means None."""
+    if value in (None, ''):
+        return True, None
+    try:
+        n = cast(value)
+    except (TypeError, ValueError):
+        return False, None
+    return (True, n) if lo <= n <= hi else (False, None)
+
+GYM_SET_SLOTS = 3
+
+def _gym_set_reps(value, sets, reps):
+    """Per-set reps as a fixed-length list (None = blank); older rows only stored sets x reps."""
+    if value:
+        parts = [int(p) if p else None for p in value.split(',')]
+    else:
+        parts = [reps] * min(sets or 1, GYM_SET_SLOTS) if reps else []
+    return (parts + [None] * GYM_SET_SLOTS)[:GYM_SET_SLOTS]
+
+def _gym_parse_exercises(raw):
+    if not isinstance(raw, list) or len(raw) > 60:
+        return None, "exercises must be a list of at most 60 rows"
+    parsed = []
+    for row in raw:
+        if not isinstance(row, dict):
+            return None, "each exercise must be an object"
+        name = _gym_name(row.get('exercise'))
+        if not name:
+            return None, "every exercise needs a name"
+        raw_sets = row.get('set_reps') or []
+        if not isinstance(raw_sets, list) or len(raw_sets) > GYM_SET_SLOTS:
+            return None, f"set_reps must be a list of at most {GYM_SET_SLOTS} values"
+        set_reps = []
+        for v in raw_sets:
+            ok, n = _gym_number(v, int, 1, 999)
+            if not ok:
+                return None, "reps must be valid numbers"
+            set_reps.append(n)
+        ok_w, weight = _gym_number(row.get('weight_kg'), float, 0, 1000)
+        if not ok_w:
+            return None, "weight must be a valid number"
+        done = [n for n in set_reps if n]
+        parsed.append({"exercise": name, "set_reps": set_reps, "sets": len(done) or None,
+                       "reps": max(done) if done else None, "weight_kg": weight})
+    return parsed, None
+
+def _gym_pr_indexes(db, date_str, rows):
+    """Indexes of rows that beat the best weight for that exercise on earlier dates.
+
+    The first-ever weighted entry is a baseline, not a PR. Within one day only the
+    heaviest row per exercise can be a PR.
+    """
+    day_best = {}
+    for i, r in enumerate(rows):
+        if r['weight_kg'] is None:
+            continue
+        key = r['exercise'].lower()
+        if key not in day_best or r['weight_kg'] > day_best[key][0]:
+            day_best[key] = (r['weight_kg'], i)
+    flags = set()
+    for key, (weight, idx) in day_best.items():
+        prior = db.execute('''
+            SELECT MAX(e.weight_kg) AS best, COUNT(*) AS n
+            FROM gym_exercise_log e JOIN gym_log l ON l.id = e.log_id
+            WHERE LOWER(e.exercise) = ? AND l.date < ? AND e.weight_kg IS NOT NULL
+        ''', (key, date_str)).fetchone()
+        if prior['n'] and weight > prior['best']:
+            flags.add(idx)
+    return flags
+
+def _gym_day(db, date_str):
+    log = db.execute('SELECT * FROM gym_log WHERE date = ?', (date_str,)).fetchone()
+    if not log:
+        return {"date": date_str, "exists": False, "preset_name": None, "notes": "",
+                "cardio": False, "steps_10k": False, "exercises": []}
+    rows = [dict(r) for r in db.execute('''
+        SELECT exercise, sets, reps, set_reps, weight_kg FROM gym_exercise_log
+        WHERE log_id = ? ORDER BY position ASC, id ASC
+    ''', (log['id'],)).fetchall()]
+    prs = _gym_pr_indexes(db, date_str, rows)
+    for i, r in enumerate(rows):
+        r['is_pr'] = i in prs
+        r['set_reps'] = _gym_set_reps(r['set_reps'], r['sets'], r['reps'])
+    return {"date": date_str, "exists": True, "preset_name": log['preset_name'], "notes": log['notes'],
+            "cardio": bool(log['cardio']), "steps_10k": bool(log['steps_10k']), "exercises": rows}
+
+@app.route('/api/gym/heatmap', methods=['GET'])
+def gym_heatmap():
+    start, end = _gym_date(request.args.get('from')), _gym_date(request.args.get('to'))
+    if not start or not end or end < start or (end - start).days > 800:
+        return jsonify({"status": "error", "message": "from and to must be valid dates (YYYY-MM-DD), at most ~2 years apart"}), 400
+    db = get_db()
+    rows = db.execute('''
+        SELECT l.date, l.preset_name, l.cardio, l.steps_10k,
+               (SELECT COUNT(*) FROM gym_exercise_log e WHERE e.log_id = l.id) AS exercise_count
+        FROM gym_log l WHERE l.date BETWEEN ? AND ? ORDER BY l.date ASC
+    ''', (start.isoformat(), end.isoformat())).fetchall()
+    data = [{"date": r['date'], "level": 1 + (1 if r['cardio'] else 0) + (1 if r['steps_10k'] else 0),
+             "preset_name": r['preset_name'], "cardio": bool(r['cardio']),
+             "steps_10k": bool(r['steps_10k']), "exercise_count": r['exercise_count']} for r in rows]
+    return jsonify({"status": "success", "data": data})
+
+@app.route('/api/gym/log/<date_str>', methods=['GET'])
+def gym_get_log(date_str):
+    if not _gym_date(date_str):
+        return jsonify({"status": "error", "message": "invalid date"}), 400
+    return jsonify({"status": "success", "data": _gym_day(get_db(), date_str)})
+
+@app.route('/api/gym/log/<date_str>', methods=['PUT'])
+def gym_put_log(date_str):
+    day = _gym_date(date_str)
+    if not day:
+        return jsonify({"status": "error", "message": "invalid date"}), 400
+    if day > date_type.today():
+        return jsonify({"status": "error", "message": "cannot log a future date"}), 400
+    data = request.json or {}
+    exercises, err = _gym_parse_exercises(data.get('exercises', []))
+    if err:
+        return jsonify({"status": "error", "message": err}), 400
+    notes = str(data.get('notes') or '')[:2000]
+    preset_name = _gym_name(data.get('preset_name')) or None
+    db = get_db()
+    db.execute('''
+        INSERT INTO gym_log (date, preset_name, notes, cardio, steps_10k) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(date) DO UPDATE SET preset_name = excluded.preset_name, notes = excluded.notes,
+            cardio = excluded.cardio, steps_10k = excluded.steps_10k
+    ''', (date_str, preset_name, notes, 1 if data.get('cardio') else 0, 1 if data.get('steps_10k') else 0))
+    log_id = db.execute('SELECT id FROM gym_log WHERE date = ?', (date_str,)).fetchone()['id']
+    db.execute('DELETE FROM gym_exercise_log WHERE log_id = ?', (log_id,))
+    for pos, ex in enumerate(exercises):
+        db.execute('''
+            INSERT INTO gym_exercise_log (log_id, exercise, position, sets, reps, set_reps, weight_kg)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (log_id, ex['exercise'], pos, ex['sets'], ex['reps'],
+              ','.join('' if n is None else str(n) for n in ex['set_reps']), ex['weight_kg']))
+    db.commit()
+    prs = _gym_pr_indexes(db, date_str, exercises)
+    return jsonify({"status": "success", "new_prs": [
+        {"exercise": exercises[i]['exercise'], "weight_kg": exercises[i]['weight_kg']} for i in sorted(prs)
+    ]})
+
+@app.route('/api/gym/log/<date_str>', methods=['DELETE'])
+def gym_delete_log(date_str):
+    if not _gym_date(date_str):
+        return jsonify({"status": "error", "message": "invalid date"}), 400
+    db = get_db()
+    row = db.execute('SELECT id FROM gym_log WHERE date = ?', (date_str,)).fetchone()
+    if row:
+        db.execute('DELETE FROM gym_exercise_log WHERE log_id = ?', (row['id'],))
+        db.execute('DELETE FROM gym_log WHERE id = ?', (row['id'],))
+        db.commit()
+    return jsonify({"status": "success"})
+
+def _gym_read_preset_body(db, preset_id=None):
+    data = request.json or {}
+    name = _gym_name(data.get('name'), 40)
+    if not name:
+        return None, "preset name is required"
+    ok, weekday = _gym_number(data.get('weekday'), int, 0, 6)
+    if not ok:
+        return None, "weekday must be 0 (Mon) to 6 (Sun) or empty"
+    raw = data.get('exercises', [])
+    if not isinstance(raw, list) or len(raw) > 40:
+        return None, "exercises must be a list of at most 40 names"
+    names = [_gym_name(x) for x in raw]
+    if not all(names):
+        return None, "exercise names cannot be empty"
+    clash = db.execute('SELECT id FROM gym_preset WHERE LOWER(name) = ? AND id != ?',
+                       (name.lower(), preset_id if preset_id is not None else -1)).fetchone()
+    if clash:
+        return None, "a preset with that name already exists"
+    return {"name": name, "weekday": weekday, "exercises": names}, None
+
+def _gym_write_exercises(db, preset_id, names):
+    db.execute('DELETE FROM gym_preset_exercise WHERE preset_id = ?', (preset_id,))
+    for pos, n in enumerate(names):
+        db.execute('INSERT INTO gym_preset_exercise (preset_id, name, position) VALUES (?, ?, ?)', (preset_id, n, pos))
+
+@app.route('/api/gym/presets', methods=['GET'])
+def gym_get_presets():
+    db = get_db()
+    presets = [dict(r) for r in db.execute('SELECT id, name, weekday FROM gym_preset ORDER BY position ASC, id ASC').fetchall()]
+    for p in presets:
+        p['exercises'] = [r['name'] for r in db.execute(
+            'SELECT name FROM gym_preset_exercise WHERE preset_id = ? ORDER BY position ASC, id ASC', (p['id'],)).fetchall()]
+    return jsonify({"status": "success", "data": presets})
+
+@app.route('/api/gym/presets', methods=['POST'])
+def gym_create_preset():
+    db = get_db()
+    body, err = _gym_read_preset_body(db)
+    if err:
+        return jsonify({"status": "error", "message": err}), 409 if 'exists' in err else 400
+    pos = db.execute('SELECT COALESCE(MAX(position), -1) + 1 AS p FROM gym_preset').fetchone()['p']
+    cur = db.execute('INSERT INTO gym_preset (name, weekday, position) VALUES (?, ?, ?)', (body['name'], body['weekday'], pos))
+    _gym_write_exercises(db, cur.lastrowid, body['exercises'])
+    db.commit()
+    return jsonify({"status": "success", "id": cur.lastrowid})
+
+@app.route('/api/gym/presets/<int:preset_id>', methods=['PUT'])
+def gym_update_preset(preset_id):
+    db = get_db()
+    if not db.execute('SELECT 1 FROM gym_preset WHERE id = ?', (preset_id,)).fetchone():
+        return jsonify({"status": "error", "message": "preset not found"}), 404
+    body, err = _gym_read_preset_body(db, preset_id)
+    if err:
+        return jsonify({"status": "error", "message": err}), 409 if 'exists' in err else 400
+    db.execute('UPDATE gym_preset SET name = ?, weekday = ? WHERE id = ?', (body['name'], body['weekday'], preset_id))
+    _gym_write_exercises(db, preset_id, body['exercises'])
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/gym/presets/<int:preset_id>', methods=['DELETE'])
+def gym_delete_preset(preset_id):
+    db = get_db()
+    db.execute('DELETE FROM gym_preset_exercise WHERE preset_id = ?', (preset_id,))
+    db.execute('DELETE FROM gym_preset WHERE id = ?', (preset_id,))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/gym/prs', methods=['GET'])
+def gym_get_prs():
+    db = get_db()
+    rows = db.execute('''
+        SELECT e.exercise, e.weight_kg, e.reps, l.date
+        FROM gym_exercise_log e JOIN gym_log l ON l.id = e.log_id
+        WHERE e.weight_kg IS NOT NULL ORDER BY l.date ASC, e.id ASC
+    ''').fetchall()
+    best = {}
+    for r in rows:  # ascending dates, strict '>' keeps the earliest date that hit the best weight
+        key = r['exercise'].lower()
+        if key not in best or r['weight_kg'] > best[key]['weight_kg']:
+            best[key] = {"exercise": r['exercise'], "weight_kg": r['weight_kg'], "reps": r['reps'], "date": r['date']}
+    data = sorted(best.values(), key=lambda x: x['date'], reverse=True)
+    return jsonify({"status": "success", "data": data})
+
+@app.route('/api/gym/exercises', methods=['GET'])
+def gym_get_exercises():
+    db = get_db()
+    names = {}
+    for table in ('gym_preset_exercise', 'gym_exercise_log'):
+        col = 'name' if table == 'gym_preset_exercise' else 'exercise'
+        for r in db.execute(f'SELECT DISTINCT {col} AS n FROM {table}').fetchall():
+            names.setdefault(r['n'].lower(), r['n'])
+    return jsonify({"status": "success", "data": sorted(names.values(), key=str.lower)})
+
 # --- ESE Calculator Routes ---
 
 @app.route('/api/grades/ese-subjects', methods=['GET'])
@@ -1433,6 +1691,48 @@ def init_db_schema():
             CREATE UNIQUE INDEX IF NOT EXISTS ux_override_att
             ON override_attendance (week_key, subject_id, start_time, date)
         ''')
+
+        # Gym tracking
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS gym_preset (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                name     TEXT NOT NULL,
+                weekday  INTEGER CHECK(weekday IS NULL OR weekday BETWEEN 0 AND 6),
+                position INTEGER NOT NULL DEFAULT 0
+            )
+        ''')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS gym_preset_exercise (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                preset_id INTEGER NOT NULL,
+                name      TEXT NOT NULL,
+                position  INTEGER NOT NULL DEFAULT 0
+            )
+        ''')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS gym_log (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                date        TEXT NOT NULL UNIQUE,
+                preset_name TEXT,
+                notes       TEXT NOT NULL DEFAULT '',
+                cardio      INTEGER NOT NULL DEFAULT 0,
+                steps_10k   INTEGER NOT NULL DEFAULT 0
+            )
+        ''')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS gym_exercise_log (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                log_id    INTEGER NOT NULL,
+                exercise  TEXT NOT NULL,
+                position  INTEGER NOT NULL DEFAULT 0,
+                sets      INTEGER,
+                reps      INTEGER,
+                weight_kg REAL
+            )
+        ''')
+        if 'set_reps' not in [c['name'] for c in db.execute('PRAGMA table_info(gym_exercise_log)')]:
+            db.execute('ALTER TABLE gym_exercise_log ADD COLUMN set_reps TEXT')
+        db.execute('CREATE INDEX IF NOT EXISTS ix_gym_ex_log ON gym_exercise_log (log_id)')
         db.commit()
 
 init_db_schema()
