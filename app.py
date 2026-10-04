@@ -1,10 +1,13 @@
 import sqlite3
 import os
-from flask import Flask, render_template, jsonify, request, g
+import re
+import uuid
+from flask import Flask, render_template, jsonify, request, g, send_from_directory
 from datetime import datetime, timedelta, date as date_type
 
 app = Flask(__name__)
 app.config['DATABASE'] = os.path.join(app.instance_path, 'cockpit.db')
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # scrapbook image uploads
 
 def get_db():
     if 'db' not in g:
@@ -939,6 +942,7 @@ def update_project_status(id):
 def delete_project(id):
     db = get_db()
     db.execute('DELETE FROM projects WHERE id = ?', (id,))
+    db.execute('UPDATE board_nodes SET project_id = NULL WHERE project_id = ?', (id,))
     db.commit()
     return jsonify({"status": "success"})
 
@@ -1631,6 +1635,419 @@ def _migrate_semester_marks(db):
     db.commit()
 
 
+# --- Scrapbook Routes ---
+
+SCRAP_IMAGE_TYPES = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+SCRAP_ITEM_TYPES = ('note', 'image', 'pin')
+SCRAP_NOTE_COLOURS = ('yellow', 'pink', 'blue', 'green')
+SCRAP_PRESET_CATEGORIES = [
+    ('Ideas', '#f59e0b'), ('Research', '#60a5fa'), ('Design', '#a78bfa'),
+    ('Tasks', '#06d6a0'), ('Resources', '#f472b6'), ('Inspiration', '#fb923c'),
+]
+SCRAP_CATEGORY_PALETTE = ['#22d3ee', '#84cc16', '#e879f9', '#f87171', '#facc15', '#2dd4bf']
+SCRAP_MAX_COORD = 100000
+
+def _scrap_upload_dir():
+    path = os.path.join(app.instance_path, 'uploads')
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def _scrap_err(message, code=400):
+    return jsonify({"status": "error", "message": message}), code
+
+def _scrap_float(value, default=0.0, lo=-SCRAP_MAX_COORD, hi=SCRAP_MAX_COORD):
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(lo, min(hi, n)) if n == n else default
+
+def _scrap_image_ref(value):
+    """Only accept a bare filename that exists in the uploads folder."""
+    name = os.path.basename(str(value or ''))
+    if name and name == value and os.path.isfile(os.path.join(_scrap_upload_dir(), name)):
+        return name
+    return None
+
+def _scrap_remove_images(db, names):
+    """Delete uploaded files that no item references any more."""
+    for name in {n for n in names if n}:
+        if not db.execute('SELECT 1 FROM board_items WHERE image_path = ? LIMIT 1', (name,)).fetchone():
+            try:
+                os.remove(os.path.join(_scrap_upload_dir(), name))
+            except OSError:
+                pass
+
+def _scrap_node_ids(db, node_id):
+    """node_id plus all of its descendants."""
+    ids, frontier = [node_id], [node_id]
+    while frontier:
+        marks = ','.join('?' * len(frontier))
+        frontier = [r['id'] for r in db.execute(
+            f'SELECT id FROM board_nodes WHERE parent_id IN ({marks})', frontier)]
+        ids.extend(frontier)
+    return ids
+
+def _scrap_delete_nodes(db, node_ids):
+    marks = ','.join('?' * len(node_ids))
+    images = [r['image_path'] for r in db.execute(
+        f'SELECT image_path FROM board_items WHERE node_id IN ({marks})', node_ids)]
+    db.execute(f'DELETE FROM board_links WHERE node_id IN ({marks})', node_ids)
+    db.execute(f'DELETE FROM board_items WHERE node_id IN ({marks})', node_ids)
+    db.execute(f'DELETE FROM board_nodes WHERE id IN ({marks})', node_ids)
+    _scrap_remove_images(db, images)
+
+def _scrap_project(db, project_id, node_id=None):
+    """Validate a node's project link; a project can be linked to one node across all boards.
+    Returns (project_id or None, error response or None)."""
+    if project_id in (None, ''):
+        return None, None
+    row = db.execute('SELECT id FROM projects WHERE id = ?', (project_id,)).fetchone()
+    if not row:
+        return None, _scrap_err('project not found')
+    clash = db.execute('''SELECT n.title, b.name AS board FROM board_nodes n JOIN boards b ON b.id = n.board_id
+                         WHERE n.project_id = ? AND n.id IS NOT ?''', (row['id'], node_id)).fetchone()
+    if clash:
+        return None, _scrap_err(f'that project is already linked to "{clash["title"]}" on the board "{clash["board"]}"', 409)
+    return row['id'], None
+
+@app.route('/scrapbook-files/<path:filename>')
+def scrapbook_file(filename):
+    return send_from_directory(_scrap_upload_dir(), filename)
+
+@app.route('/api/scrapbook/upload', methods=['POST'])
+def scrapbook_upload():
+    f = request.files.get('file')
+    if not f or not f.filename:
+        return _scrap_err('no file')
+    ext = f.filename.rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+    if ext not in SCRAP_IMAGE_TYPES:
+        return _scrap_err('unsupported image type (png, jpg, gif or webp)')
+    name = f'{uuid.uuid4().hex}.{ext}'
+    f.save(os.path.join(_scrap_upload_dir(), name))
+    return jsonify({"status": "success", "image_path": name})
+
+@app.errorhandler(413)
+def scrapbook_too_large(e):
+    return _scrap_err('file too large (10 MB max)', 413)
+
+@app.route('/api/scrapbook/boards', methods=['GET'])
+def scrapbook_boards():
+    rows = get_db().execute('''
+        SELECT b.id, b.name, r.id AS root_id, p.name AS project_name
+        FROM boards b
+        LEFT JOIN board_nodes r ON r.board_id = b.id AND r.parent_id IS NULL
+        LEFT JOIN projects p ON p.id = r.project_id
+        ORDER BY b.id ASC
+    ''').fetchall()
+    return jsonify({"status": "success", "data": [dict(r) for r in rows]})
+
+@app.route('/api/scrapbook/boards', methods=['POST'])
+def scrapbook_add_board():
+    db = get_db()
+    data = request.json or {}
+    name = _gym_name(data.get('name'), 60)
+    if not name:
+        return _scrap_err('board name required')
+    cur = db.execute('INSERT INTO boards (name) VALUES (?)', (name,))
+    db.execute('''INSERT INTO board_nodes (board_id, parent_id, category, title, x, y)
+                  VALUES (?, NULL, 'root', ?, 0, 0)''', (cur.lastrowid, name))
+    db.commit()
+    return jsonify({"status": "success", "id": cur.lastrowid})
+
+@app.route('/api/scrapbook/boards/<int:board_id>', methods=['PATCH'])
+def scrapbook_edit_board(board_id):
+    db = get_db()
+    board = db.execute('SELECT * FROM boards WHERE id = ?', (board_id,)).fetchone()
+    if not board:
+        return _scrap_err('board not found', 404)
+    name = _gym_name((request.json or {}).get('name'), 60)
+    if not name:
+        return _scrap_err('board name required')
+    db.execute('UPDATE boards SET name = ? WHERE id = ?', (name, board_id))
+    db.execute('UPDATE board_nodes SET title = ? WHERE board_id = ? AND parent_id IS NULL', (name[:40], board_id))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/scrapbook/boards/<int:board_id>', methods=['DELETE'])
+def scrapbook_delete_board(board_id):
+    db = get_db()
+    ids = [r['id'] for r in db.execute('SELECT id FROM board_nodes WHERE board_id = ?', (board_id,))]
+    if ids:
+        _scrap_delete_nodes(db, ids)
+    db.execute('DELETE FROM boards WHERE id = ?', (board_id,))
+    db.commit()
+    return jsonify({"status": "success"})
+
+def _scrap_category_name(value):
+    """Sanitised category name, or None if empty or reserved."""
+    name = _gym_name(value, 24)
+    return name if name and name.lower() != 'root' else None
+
+def _scrap_custom_category(db, cat_id):
+    """A custom category row. Returns (row or None, error response or None)."""
+    row = db.execute('SELECT * FROM board_categories WHERE id = ?', (cat_id,)).fetchone()
+    if not row:
+        return None, _scrap_err('category not found', 404)
+    if row['is_preset']:
+        return None, _scrap_err('built-in categories cannot be changed', 403)
+    return row, None
+
+@app.route('/api/scrapbook/project-links', methods=['GET'])
+def scrapbook_project_links():
+    rows = get_db().execute('''
+        SELECT n.project_id, n.id AS node_id, n.title, b.name AS board
+        FROM board_nodes n JOIN boards b ON b.id = n.board_id
+        WHERE n.project_id IS NOT NULL
+    ''').fetchall()
+    return jsonify({"status": "success", "data": [dict(r) for r in rows]})
+
+@app.route('/api/scrapbook/categories', methods=['GET'])
+def scrapbook_categories():
+    rows = get_db().execute('''
+        SELECT c.id, c.name, c.colour, c.is_preset,
+               (SELECT COUNT(*) FROM board_nodes n WHERE n.category = c.name) AS node_count
+        FROM board_categories c ORDER BY c.id
+    ''').fetchall()
+    return jsonify({"status": "success", "data": [dict(r) for r in rows]})
+
+@app.route('/api/scrapbook/categories', methods=['POST'])
+def scrapbook_add_category():
+    db = get_db()
+    name = _scrap_category_name((request.json or {}).get('name'))
+    if not name:
+        return _scrap_err('category name required')
+    existing = db.execute('SELECT name, colour FROM board_categories WHERE name = ?', (name,)).fetchone()
+    if existing:
+        return jsonify({"status": "success", "name": existing['name'], "colour": existing['colour']})
+    count = db.execute('SELECT COUNT(*) AS c FROM board_categories WHERE is_preset = 0').fetchone()['c']
+    colour = SCRAP_CATEGORY_PALETTE[count % len(SCRAP_CATEGORY_PALETTE)]
+    db.execute('INSERT INTO board_categories (name, colour, is_preset) VALUES (?, ?, 0)', (name, colour))
+    db.commit()
+    return jsonify({"status": "success", "name": name, "colour": colour})
+
+@app.route('/api/scrapbook/categories/<int:cat_id>', methods=['PATCH'])
+def scrapbook_rename_category(cat_id):
+    """Rename a custom category; nodes store the name, so they are renamed with it."""
+    db = get_db()
+    row, err = _scrap_custom_category(db, cat_id)
+    if err:
+        return err
+    name = _scrap_category_name((request.json or {}).get('name'))
+    if not name:
+        return _scrap_err('category name required')
+    clash = db.execute('SELECT 1 FROM board_categories WHERE name = ? AND id != ?', (name, cat_id)).fetchone()
+    if clash:
+        return _scrap_err('a category with that name already exists', 409)
+    db.execute('UPDATE board_categories SET name = ? WHERE id = ?', (name, cat_id))
+    db.execute('UPDATE board_nodes SET category = ? WHERE category = ?', (name, row['name']))
+    db.commit()
+    return jsonify({"status": "success", "name": name})
+
+@app.route('/api/scrapbook/categories/<int:cat_id>', methods=['DELETE'])
+def scrapbook_delete_category(cat_id):
+    """Delete a custom category. Nodes using it move to `move_to` (required if any exist)."""
+    db = get_db()
+    row, err = _scrap_custom_category(db, cat_id)
+    if err:
+        return err
+    used = db.execute('SELECT COUNT(*) AS c FROM board_nodes WHERE category = ?', (row['name'],)).fetchone()['c']
+    if used:
+        target = db.execute('SELECT name FROM board_categories WHERE name = ? AND id != ?',
+                            ((request.get_json(silent=True) or {}).get('move_to'), cat_id)).fetchone()
+        if not target:
+            return _scrap_err(f'pick a category to move its {used} node(s) to')
+        db.execute('UPDATE board_nodes SET category = ? WHERE category = ?', (target['name'], row['name']))
+    db.execute('DELETE FROM board_categories WHERE id = ?', (cat_id,))
+    db.commit()
+    return jsonify({"status": "success", "moved": used})
+
+@app.route('/api/scrapbook/boards/<int:board_id>/nodes', methods=['GET'])
+def scrapbook_nodes(board_id):
+    rows = get_db().execute('''
+        SELECT n.id, n.parent_id, n.category, n.title, n.x, n.y,
+               p.id AS project_id, p.name AS project_name, p.status AS project_status,
+               (SELECT COUNT(*) FROM board_items i WHERE i.node_id = n.id) AS item_count
+        FROM board_nodes n LEFT JOIN projects p ON p.id = n.project_id
+        WHERE n.board_id = ? ORDER BY n.id
+    ''', (board_id,)).fetchall()
+    return jsonify({"status": "success", "data": [dict(r) for r in rows]})
+
+@app.route('/api/scrapbook/boards/<int:board_id>/nodes', methods=['POST'])
+def scrapbook_add_node(board_id):
+    db = get_db()
+    data = request.json or {}
+    title = _gym_name(data.get('title'), 40)
+    if not title:
+        return _scrap_err('node title required')
+    parent = db.execute('SELECT id FROM board_nodes WHERE id = ? AND board_id = ?',
+                        (data.get('parent_id'), board_id)).fetchone()
+    if not parent:
+        return _scrap_err('parent node not found')
+    category = db.execute('SELECT name FROM board_categories WHERE name = ?', (data.get('category'),)).fetchone()
+    if not category:
+        return _scrap_err('unknown category')
+    project_id, err = _scrap_project(db, data.get('project_id'))
+    if err:
+        return err
+    cur = db.execute('''INSERT INTO board_nodes (board_id, parent_id, category, title, x, y, project_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                     (board_id, parent['id'], category['name'], title,
+                      _scrap_float(data.get('x')), _scrap_float(data.get('y')), project_id))
+    db.commit()
+    return jsonify({"status": "success", "id": cur.lastrowid})
+
+@app.route('/api/scrapbook/nodes/<int:node_id>', methods=['PATCH'])
+def scrapbook_edit_node(node_id):
+    db = get_db()
+    node = db.execute('SELECT * FROM board_nodes WHERE id = ?', (node_id,)).fetchone()
+    if not node:
+        return _scrap_err('node not found', 404)
+    data = request.json or {}
+    title, category = node['title'], node['category']
+    if 'title' in data:
+        title = _gym_name(data.get('title'), 40)
+        if not title:
+            return _scrap_err('node title required')
+    if 'category' in data and node['parent_id'] is not None:
+        row = db.execute('SELECT name FROM board_categories WHERE name = ?', (data.get('category'),)).fetchone()
+        if not row:
+            return _scrap_err('unknown category')
+        category = row['name']
+    project_id = node['project_id']
+    if 'project_id' in data:
+        project_id, err = _scrap_project(db, data.get('project_id'), node_id)
+        if err:
+            return err
+    x = _scrap_float(data['x']) if 'x' in data else node['x']
+    y = _scrap_float(data['y']) if 'y' in data else node['y']
+    db.execute('UPDATE board_nodes SET title = ?, category = ?, x = ?, y = ?, project_id = ? WHERE id = ?',
+               (title, category, x, y, project_id, node_id))
+    if node['parent_id'] is None and 'title' in data:
+        db.execute('UPDATE boards SET name = ? WHERE id = ?', (title, node['board_id']))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/scrapbook/nodes/<int:node_id>', methods=['DELETE'])
+def scrapbook_delete_node(node_id):
+    db = get_db()
+    node = db.execute('SELECT parent_id FROM board_nodes WHERE id = ?', (node_id,)).fetchone()
+    if not node:
+        return _scrap_err('node not found', 404)
+    if node['parent_id'] is None:
+        return _scrap_err('the main node cannot be deleted; delete the board instead')
+    _scrap_delete_nodes(db, _scrap_node_ids(db, node_id))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/scrapbook/nodes/<int:node_id>/canvas', methods=['GET'])
+def scrapbook_canvas(node_id):
+    db = get_db()
+    node = db.execute('SELECT id, title, category FROM board_nodes WHERE id = ?', (node_id,)).fetchone()
+    if not node:
+        return _scrap_err('node not found', 404)
+    items = db.execute('SELECT * FROM board_items WHERE node_id = ? ORDER BY z, id', (node_id,)).fetchall()
+    links = db.execute('SELECT * FROM board_links WHERE node_id = ? ORDER BY id', (node_id,)).fetchall()
+    return jsonify({"status": "success", "node": dict(node),
+                    "items": [dict(r) for r in items], "links": [dict(r) for r in links]})
+
+def _scrap_item_fields(data, cur):
+    """Validated column values for an item payload, merged over `cur` (current row as dict)."""
+    out = {
+        'x': _scrap_float(data['x']) if 'x' in data else cur.get('x', 0),
+        'y': _scrap_float(data['y']) if 'y' in data else cur.get('y', 0),
+        'w': _scrap_float(data['w'], 200, 40, 1600) if 'w' in data else cur.get('w', 200),
+        'h': _scrap_float(data['h'], 0, 0, 1600) if 'h' in data else cur.get('h', 0),
+        'z': int(_scrap_float(data['z'], 0, 0, 10**9)) if 'z' in data else cur.get('z', 0),
+        'content': cur.get('content', ''),
+        'colour': cur.get('colour') or 'yellow',
+    }
+    if cur.get('type') == 'pin':
+        out['w'], out['h'] = 28, 28
+    if 'content' in data:
+        out['content'] = str(data.get('content') or '')[:4000]
+    if data.get('colour') in SCRAP_NOTE_COLOURS:
+        out['colour'] = data['colour']
+    return out
+
+@app.route('/api/scrapbook/nodes/<int:node_id>/items', methods=['POST'])
+def scrapbook_add_item(node_id):
+    db = get_db()
+    if not db.execute('SELECT 1 FROM board_nodes WHERE id = ?', (node_id,)).fetchone():
+        return _scrap_err('node not found', 404)
+    data = request.json or {}
+    item_type = data.get('type')
+    if item_type not in SCRAP_ITEM_TYPES:
+        return _scrap_err('invalid item type')
+    image_path = None
+    if item_type == 'image':
+        image_path = _scrap_image_ref(data.get('image_path'))
+        if not image_path:
+            return _scrap_err('image not found')
+    f = _scrap_item_fields(data, {'type': item_type})
+    z = db.execute('SELECT COALESCE(MAX(z), 0) + 1 AS z FROM board_items WHERE node_id = ?', (node_id,)).fetchone()['z']
+    cur = db.execute('''INSERT INTO board_items (node_id, type, x, y, w, h, z, content, colour, image_path)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                     (node_id, item_type, f['x'], f['y'], f['w'], f['h'], z, f['content'], f['colour'], image_path))
+    db.commit()
+    row = db.execute('SELECT * FROM board_items WHERE id = ?', (cur.lastrowid,)).fetchone()
+    return jsonify({"status": "success", "item": dict(row)})
+
+@app.route('/api/scrapbook/items/<int:item_id>', methods=['PATCH'])
+def scrapbook_edit_item(item_id):
+    db = get_db()
+    row = db.execute('SELECT * FROM board_items WHERE id = ?', (item_id,)).fetchone()
+    if not row:
+        return _scrap_err('item not found', 404)
+    f = _scrap_item_fields(request.json or {}, dict(row))
+    db.execute('UPDATE board_items SET x = ?, y = ?, w = ?, h = ?, z = ?, content = ?, colour = ? WHERE id = ?',
+               (f['x'], f['y'], f['w'], f['h'], f['z'], f['content'], f['colour'], item_id))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/scrapbook/items/<int:item_id>', methods=['DELETE'])
+def scrapbook_delete_item(item_id):
+    db = get_db()
+    row = db.execute('SELECT image_path FROM board_items WHERE id = ?', (item_id,)).fetchone()
+    db.execute('DELETE FROM board_links WHERE from_item = ? OR to_item = ?', (item_id, item_id))
+    db.execute('DELETE FROM board_items WHERE id = ?', (item_id,))
+    if row:
+        _scrap_remove_images(db, [row['image_path']])
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/scrapbook/nodes/<int:node_id>/links', methods=['POST'])
+def scrapbook_add_link(node_id):
+    db = get_db()
+    data = request.json or {}
+    a, b = data.get('from_item'), data.get('to_item')
+    if a == b:
+        return _scrap_err('pick two different items')
+    found = db.execute('SELECT id FROM board_items WHERE node_id = ? AND id IN (?, ?)', (node_id, a, b)).fetchall()
+    if len(found) != 2:
+        return _scrap_err('items not found on this canvas')
+    dup = db.execute('''SELECT id FROM board_links WHERE node_id = ?
+                        AND ((from_item = ? AND to_item = ?) OR (from_item = ? AND to_item = ?))''',
+                     (node_id, a, b, b, a)).fetchone()
+    if dup:
+        return _scrap_err('already connected', 409)
+    colour = str(data.get('colour') or '')
+    if not re.fullmatch(r'#[0-9a-fA-F]{6}', colour):
+        colour = '#ef4444'
+    cur = db.execute('INSERT INTO board_links (node_id, from_item, to_item, colour) VALUES (?, ?, ?, ?)',
+                     (node_id, a, b, colour))
+    db.commit()
+    return jsonify({"status": "success", "link": {"id": cur.lastrowid, "node_id": node_id,
+                                                  "from_item": a, "to_item": b, "colour": colour}})
+
+@app.route('/api/scrapbook/links/<int:link_id>', methods=['DELETE'])
+def scrapbook_delete_link(link_id):
+    db = get_db()
+    db.execute('DELETE FROM board_links WHERE id = ?', (link_id,))
+    db.commit()
+    return jsonify({"status": "success"})
+
+
 def init_db_schema():
     with app.app_context():
         db = get_db()
@@ -1733,6 +2150,68 @@ def init_db_schema():
         if 'set_reps' not in [c['name'] for c in db.execute('PRAGMA table_info(gym_exercise_log)')]:
             db.execute('ALTER TABLE gym_exercise_log ADD COLUMN set_reps TEXT')
         db.execute('CREATE INDEX IF NOT EXISTS ix_gym_ex_log ON gym_exercise_log (log_id)')
+
+        # Scrapbook
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS boards (
+                id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL
+            )
+        ''')
+        # Project links moved from boards to nodes; older DBs keep an unused boards.project_id column.
+        db.execute('DROP INDEX IF EXISTS ux_boards_project')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS board_categories (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                name      TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                colour    TEXT NOT NULL,
+                is_preset INTEGER NOT NULL DEFAULT 0
+            )
+        ''')
+        db.executemany('INSERT OR IGNORE INTO board_categories (name, colour, is_preset) VALUES (?, ?, 1)',
+                       SCRAP_PRESET_CATEGORIES)
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS board_nodes (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                board_id  INTEGER NOT NULL,
+                parent_id INTEGER,
+                category  TEXT NOT NULL,
+                title     TEXT NOT NULL,
+                x         REAL NOT NULL DEFAULT 0,
+                y         REAL NOT NULL DEFAULT 0,
+                project_id INTEGER
+            )
+        ''')
+        if 'project_id' not in [c['name'] for c in db.execute('PRAGMA table_info(board_nodes)')]:
+            db.execute('ALTER TABLE board_nodes ADD COLUMN project_id INTEGER')
+        db.execute('CREATE INDEX IF NOT EXISTS ix_board_nodes_board ON board_nodes (board_id)')
+        db.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_board_nodes_project ON board_nodes (project_id) WHERE project_id IS NOT NULL')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS board_items (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                node_id    INTEGER NOT NULL,
+                type       TEXT NOT NULL CHECK(type IN ('note', 'image', 'pin')),
+                x          REAL NOT NULL DEFAULT 0,
+                y          REAL NOT NULL DEFAULT 0,
+                w          REAL NOT NULL DEFAULT 200,
+                h          REAL NOT NULL DEFAULT 0,
+                z          INTEGER NOT NULL DEFAULT 0,
+                content    TEXT NOT NULL DEFAULT '',
+                colour     TEXT NOT NULL DEFAULT 'yellow',
+                image_path TEXT
+            )
+        ''')
+        db.execute('CREATE INDEX IF NOT EXISTS ix_board_items_node ON board_items (node_id)')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS board_links (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                node_id   INTEGER NOT NULL,
+                from_item INTEGER NOT NULL,
+                to_item   INTEGER NOT NULL,
+                colour    TEXT NOT NULL DEFAULT '#ef4444'
+            )
+        ''')
+        db.execute('CREATE INDEX IF NOT EXISTS ix_board_links_node ON board_links (node_id)')
         db.commit()
 
 init_db_schema()

@@ -1,6 +1,6 @@
 # Future Implementations
 
-Status: Shell, Academics and Gym are built and committed (`1d66f7b`, `e70ab23`, and the Gym commit after them). Scrapbook is still planning only. No stack migration needed. Flask + SQLite + vanilla JS can handle everything below.
+Status: Shell, Academics and Gym are built and committed (`1d66f7b`, `e70ab23`, `6a6f7a2`). Scrapbook is built and tested, not committed yet. No stack migration needed. Flask + SQLite + vanilla JS can handle everything below.
 
 Legend: [x] done, [ ] not started
 
@@ -33,19 +33,27 @@ Legend: [x] done, [ ] not started
 - [x] Tables: `gym_preset`, `gym_preset_exercise`, `gym_log`, `gym_exercise_log` (created in `init_db_schema()`).
 - Not done / ideas: per-exercise progress graphs (data model supports it), per-set weights (currently one kg per exercise), loading the user's weekly gym log in as presets with their exercises (presets store names only), streaks, copy-last-workout.
 
-## 3. [ ] Scrapbook / noticeboard (needs more planning)
-- **One board per project.**
-- **Entry screen = graph view** (like graphify's UI): a main node branching into sub-nodes by category. Clicking a node opens that node's **canvas**.
-- **Canvas**: pannable board with images, notes, pins; **strings** (SVG curved/sagging lines) connect pins/items, planner-style.
-- Tech sketch: absolutely-positioned DOM items + SVG string layer, pointer-event drag; images uploaded to Flask `uploads/`, paths in SQLite. Graph view could use a small lib (d3-force / vis-network / cytoscape) or custom SVG. Konva/Fabric only if rotate/resize/zoom get painful.
-- Rough tables: `board_nodes` (parent, category, title), `board_items` (node, type, x, y, size, content/image path), `board_links` (from, to, colour).
-- Open questions: how categories are defined; node/graph layout (force vs manual); image storage/backup; zoom/pan; mobile use; how projects relate to the existing Projects modal.
+## 3. [x] Scrapbook / noticeboard
+- Done at `/scrapbook` (`templates/scrapbook.html`, `static/js/features/scrapbook-core.js` (API, modals, pan/zoom, drag helpers), `scrapbook.js` (boards + graph), `scrapbook-canvas.js` (node canvas)). Built and tested, not committed yet.
+- [x] Boards: create / rename / delete from a board picker + "Board settings" modal. A board is just a named space (e.g. "Ideas") and can hold nodes for several projects.
+- [x] Project links live on **nodes**, not boards (changed after first build): the node modal has a "Linked project" dropdown, including for the main node (linking the main node = the old "board for one project" case, and the header then shows "Project: X"). A project can be linked to one node across all boards; projects linked elsewhere are disabled in the dropdown with where they're linked (server returns 409). Linked nodes show a pill with the project name and status (Projects-modal colours). Deleting a project unlinks its node. `board_nodes.project_id` (partial unique index) + `GET /api/scrapbook/project-links`; older DBs keep an unused `boards.project_id` column.
+- [x] Graph view (entry screen): main node plus category-coloured child nodes as HTML cards over an SVG edge layer, custom code with no library. Drag nodes anywhere (position saved on drop), click a node to open its canvas, hover "+" adds a branch, "..." edits (rename, recategorise, delete). Deleting a node also deletes the nodes branching from it and their canvases. The main node can't be deleted (delete the board instead); renaming it renames the board.
+- [x] Auto-placement: new nodes fan out around their parent, pointing away from the grandparent, at the least crowded angle (tries 3 rings). No force simulation.
+- [x] Canvas: sticky notes (double-click to edit, 4 colours, resizable), images (file picker, drag-and-drop or paste; polaroid frame, resizable), free pins. New items spawn in the nearest free spot. Drag to move (brought to front), Delete key or hover "x" removes (confirm for images and non-empty notes).
+- [x] Strings: "String" tool, click item A then item B; 5 colours; sagging quadratic curves anchored at each item's pin head, redrawn live while dragging. Click a string to select it, then the "x" at its middle or Delete removes it. Visible strings are drawn above items; their click targets sit below items so a click on an item never grabs a string.
+- [x] Pan (drag the background) + zoom (wheel, toolbar -, Fit, +) on both graph and canvas. Last-opened board remembered in localStorage.
+- [x] Images: `POST /api/scrapbook/upload` (png/jpg/gif/webp, 10 MB max via `MAX_CONTENT_LENGTH`) saves a random filename into `instance/uploads/`, served by `/scrapbook-files/<name>`. Files are deleted when no item references them any more (item, node or board delete).
+- [x] Tables: `boards` (name), `board_categories` (seeded presets + custom), `board_nodes` (board, parent, category, title, x, y, project_id), `board_items` (node, type note/image/pin, x, y, w, h, z, content, colour, image_path), `board_links` (node, from_item, to_item, colour). Created in `init_db_schema()`.
+- [x] Categories: "Categories" button on the graph toolbar opens a manager. Custom categories can be added, renamed (click the name; Enter saves, Escape cancels; nodes using it are renamed too) and deleted (if nodes use it, you pick a category to move them to first). Built-in ones are read-only. Categories are shared by all boards. Routes: PATCH / DELETE `/api/scrapbook/categories/<id>`.
+- Settled while building: preset categories are Ideas, Research, Design, Tasks, Resources, Inspiration (new ones can be added from the node modal or the Categories manager); strings attach to any item (notes, images, pins).
+- Phone: usable layout (header compacts, no page overflow at 820 / 390px), but interactions are desktop-first: no pinch-zoom, and hover controls are always shown on touch screens.
+- Not done / ideas: pinch-zoom and touch polish, rotating items, image captions, multi-select, undo, recolouring an existing string, moving an item between nodes, recolouring categories, showing a board's summary on the Projects modal.
 
 ## Dropped
 - Valorant tracking page: no public Riot API for player stats, so it was scrapped.
 
 ## Cross-cutting notes
-- Uploaded images need persistent disk on the host (relevant to hosting plan: Oracle Always Free OK; ephemeral platforms not). Back up DB + uploads together.
-- `app.py` keeps growing (no Blueprints yet; Academics routes were added inline): consider Flask Blueprints per view before Gym/Scrapbook. One JS file per view in `static/js/features/` is the pattern in use.
-- Build order: nav shell (done) -> Academics (done) -> Gym (done) -> Scrapbook.
+- Uploaded images need persistent disk on the host (relevant to hosting plan: Oracle Always Free OK; ephemeral platforms not). Back up `instance/cockpit.db` and `instance/uploads/` together.
+- `app.py` keeps growing (no Blueprints yet; Academics, Gym and Scrapbook routes are all inline, ~2100 lines): splitting into Flask Blueprints per view is the next cleanup. One JS file per view in `static/js/features/` is the pattern in use (Scrapbook uses three).
+- Build order: nav shell (done) -> Academics (done) -> Gym (done) -> Scrapbook (done).
 - Housekeeping: all finished commits are local only (not pushed).

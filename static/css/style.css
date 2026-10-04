@@ -1624,6 +1624,7 @@ body {
 }
 
 .acad-field { display: flex; flex-direction: column; gap: 4px; }
+.acad-field[hidden] { display: none; }
 .acad-field > span { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .acad-field-grow { flex: 1 1 200px; }
 .acad-field-inline { flex-direction: row; align-items: center; gap: 8px; }
@@ -1892,3 +1893,365 @@ body {
 }
 
 .gym-modal .modal-body > .acad-btn:not(.acad-btn-primary) { align-self: flex-start; }
+
+
+/* ==============================================
+   SCRAPBOOK PAGE
+   ============================================== */
+.scrap-page {
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: calc(100vh - var(--nav-h));
+    min-height: 520px;
+}
+
+.scrap-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.scrap-board-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.scrap-board-bar[hidden], .scrap-stage[hidden], .scrap-empty[hidden] { display: none; }
+.scrap-board-pick { max-width: 260px; font-weight: 600; }
+.scrap-project-tag {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.scrap-empty {
+    align-self: center;
+    max-width: 520px;
+    margin-top: 48px;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+}
+.scrap-empty p { color: var(--text-muted); line-height: 1.5; }
+
+/* Stage + world (shared by graph and canvas) */
+.scrap-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    background-color: var(--card-bg);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.4px);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+.scrap-stage.is-panning { cursor: grabbing; }
+.scrap-canvas-stage {
+    background-color: #17140f;
+    background-image: radial-gradient(rgba(245, 158, 11, 0.09) 1px, transparent 1.4px);
+}
+.scrap-stage.is-dropping { outline: 2px dashed var(--accent-teal); outline-offset: -6px; }
+
+.scrap-world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+.scrap-svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+#scrap-graph-nodes, #scrap-canvas-items { position: absolute; left: 0; top: 0; z-index: 0; }
+.scrap-strings { z-index: 1; }
+
+/* Floating toolbar + hint */
+.scrap-toolbar {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px;
+    background: rgba(22, 22, 22, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(6px);
+    cursor: default;
+}
+.scrap-toolbar .acad-btn { padding: 7px 12px; font-size: 0.85rem; }
+.scrap-toolbar-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.1); }
+.scrap-tool {
+    height: 34px;
+    min-width: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.scrap-tool:hover { background: rgba(255, 255, 255, 0.06); }
+.scrap-tool.is-active { background: var(--accent-teal); border-color: var(--accent-teal); color: var(--bg-color); }
+.scrap-tool:focus-visible, .scrap-swatch:focus-visible { outline: 2px solid var(--accent-purple); outline-offset: 2px; }
+.scrap-canvas-title { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+
+.scrap-swatches { display: inline-flex; gap: 6px; padding: 0 4px; }
+.scrap-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.4);
+    background: var(--swatch);
+    cursor: pointer;
+    padding: 0;
+}
+.scrap-swatch.is-active { outline: 2px solid var(--text-main); outline-offset: 2px; }
+
+.scrap-hint {
+    position: absolute;
+    left: 12px;
+    bottom: 10px;
+    z-index: 5;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(10, 10, 10, 0.7);
+    pointer-events: none;
+}
+
+/* Graph view */
+.scrap-edge { fill: none; stroke-width: 2; opacity: 0.55; }
+.scrap-node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    min-width: 130px;
+    max-width: 220px;
+    padding: 12px 18px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    text-align: center;
+    background: #1c1c1c;
+    border: 1px solid color-mix(in srgb, var(--cat) 45%, transparent);
+    border-radius: 14px;
+    box-shadow: inset 0 3px 0 var(--cat), var(--shadow-sm);
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+}
+.scrap-node:hover { border-color: var(--cat); background: #222; }
+.scrap-node:focus-visible { outline: 2px solid var(--accent-purple); outline-offset: 3px; }
+.scrap-node.is-dragging { cursor: grabbing; z-index: 2; box-shadow: inset 0 3px 0 var(--cat), var(--shadow-md); }
+.scrap-node.is-root {
+    min-width: 170px;
+    padding: 16px 24px 12px;
+    background: color-mix(in srgb, var(--accent-purple) 14%, #1c1c1c);
+}
+.scrap-node.is-root .scrap-node-title { font-size: 1.1rem; }
+.scrap-node-cat { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--cat); }
+.scrap-node-title { font-size: 0.95rem; line-height: 1.3; overflow-wrap: anywhere; }
+.scrap-node-count { font-size: 0.72rem; color: var(--text-muted); }
+.scrap-node-project {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    margin: 3px 0 1px;
+    padding: 2px 8px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-main);
+    background: color-mix(in srgb, var(--status) 14%, transparent);
+    border-radius: 999px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.scrap-node-project-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--status); flex-shrink: 0; }
+.scrap-project-tag[hidden] { display: none; }
+.scrap-node-actions {
+    position: absolute;
+    top: -13px;
+    right: -13px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity var(--transition);
+}
+.scrap-node:hover .scrap-node-actions, .scrap-node:focus-within .scrap-node-actions { opacity: 1; }
+.scrap-node-act, .scrap-item-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #262626;
+    color: var(--text-main);
+    font: inherit;
+    font-weight: 700;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: var(--transition);
+}
+.scrap-node-act:hover { background: var(--accent-purple); color: var(--bg-color); }
+
+/* Canvas items */
+.scrap-item { position: absolute; cursor: grab; touch-action: none; }
+.scrap-item.is-dragging { cursor: grabbing; }
+.scrap-item.is-selected { outline: 2px solid var(--accent-purple); outline-offset: 3px; }
+.scrap-item.is-string-source { outline: 2px dashed var(--accent-teal); outline-offset: 3px; }
+.is-stringing, .is-stringing .scrap-item { cursor: crosshair; }
+
+.scrap-note {
+    min-height: 90px;
+    padding: 24px 14px 14px;
+    border-radius: 4px;
+    color: #1f1b10;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+.scrap-note[data-colour="yellow"] { background: #fde68a; }
+.scrap-note[data-colour="pink"]   { background: #fbcfe8; }
+.scrap-note[data-colour="blue"]   { background: #bfdbfe; }
+.scrap-note[data-colour="green"]  { background: #bbf7d0; }
+.scrap-note-text { white-space: pre-wrap; overflow-wrap: anywhere; outline: none; min-height: 1.45em; }
+.scrap-note-text:empty::before { content: attr(data-placeholder); color: rgba(0, 0, 0, 0.4); }
+.scrap-note.is-editing { cursor: auto; box-shadow: 0 0 0 2px var(--accent-purple), 0 8px 18px rgba(0, 0, 0, 0.45); }
+.scrap-note.is-editing .scrap-note-text { cursor: text; user-select: text; }
+
+.scrap-image {
+    padding: 10px 10px 28px;
+    background: #f5f5f4;
+    border-radius: 3px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+}
+.scrap-image img { display: block; width: 100%; height: auto; pointer-events: none; }
+.scrap-image.is-broken img { display: none; }
+.scrap-image.is-broken::after { content: 'Image missing'; display: block; padding: 40px 0; text-align: center; color: #78716c; font-size: 0.8rem; }
+
+/* Pin heads sit at the item's top centre, which is where strings attach. */
+.scrap-pinhead, .scrap-pin-shape {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fca5a5, #dc2626 55%, #7f1d1d);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.5);
+    z-index: 1;
+}
+.scrap-pinhead { top: 0; left: 50%; width: 14px; height: 14px; transform: translateX(-50%); }
+.scrap-pin { width: 28px; height: 28px; }
+.scrap-pin-shape { left: 3px; top: -1px; width: 22px; height: 22px; }
+
+.scrap-item-controls {
+    position: absolute;
+    top: -14px;
+    right: -14px;
+    z-index: 2;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity var(--transition);
+}
+.scrap-pin .scrap-item-controls { top: -18px; right: -20px; }
+.scrap-item:hover .scrap-item-controls, .scrap-item.is-selected .scrap-item-controls { opacity: 1; }
+.scrap-item-btn[data-delete-item]:hover { background: var(--accent-red); border-color: var(--accent-red); }
+.scrap-item-btn:hover { background: #333; }
+.scrap-colour-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: conic-gradient(#fde68a 0 25%, #fbcfe8 0 50%, #bfdbfe 0 75%, #bbf7d0 0);
+}
+.scrap-resize {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    opacity: 0;
+    background: linear-gradient(135deg, transparent 55%, rgba(0, 0, 0, 0.35) 55%);
+    border-bottom-right-radius: 3px;
+}
+.scrap-item:hover .scrap-resize, .scrap-item.is-selected .scrap-resize { opacity: 1; }
+
+/* Strings */
+.scrap-string { fill: none; stroke-width: 2.5; stroke-linecap: round; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55)); }
+.scrap-string.is-pending { stroke-dasharray: 6 6; opacity: 0.8; }
+.scrap-string-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+.scrap-string.is-selected { stroke-width: 4; }
+.scrap-link-delete {
+    position: absolute;
+    z-index: 3;
+    width: 28px;
+    height: 28px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 2px solid var(--bg-color);
+    background: var(--accent-red);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+.scrap-link-delete[hidden] { display: none; }
+
+/* Categories modal */
+.scrap-cat-list { display: flex; flex-direction: column; gap: 6px; }
+.scrap-cat-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px 4px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+}
+.scrap-cat-row .acad-name { flex: 1; min-width: 0; }
+.scrap-cat-row.is-deleting { flex-wrap: wrap; padding: 8px 10px 8px 12px; }
+.scrap-cat-row.is-deleting .acad-input { flex: 1 1 140px; }
+.scrap-cat-move { font-size: 0.85rem; color: var(--text-muted); }
+.scrap-cat-row-actions { display: flex; gap: 6px; }
+.scrap-cat-row-actions .acad-btn { padding: 7px 12px; font-size: 0.85rem; }
+.scrap-cat-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--cat); flex-shrink: 0; }
+.scrap-cat-count { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+.scrap-cat-add { display: flex; gap: 8px; }
+.scrap-cat-add .acad-input { flex: 1; }
+.scrap-cat-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.scrap-cat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+}
+
+@media (hover: none) {
+    .scrap-node-actions, .scrap-item-controls, .scrap-resize { opacity: 1; }
+}
+
+@media (max-width: 767px) {
+    .scrap-page { padding: 12px; }
+    .scrap-hint { display: none; }
+    .scrap-canvas-title { display: none; }
+    .scrap-header { row-gap: 8px; }
+    .scrap-board-bar { order: 3; flex-basis: 100%; }
+    .scrap-board-pick { max-width: 100%; flex: 1 1 140px; }
+    .scrap-project-tag { display: none; }
+}

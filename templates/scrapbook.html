@@ -1,10 +1,164 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <main class="view-placeholder">
-        <div class="tile">
-            <h2>Scrapbook</h2>
-            <p style="color: var(--text-muted); margin-top: 8px;">Project boards are coming soon.</p>
+    <main class="scrap-page">
+        <header class="scrap-header">
+            <h1 class="acad-title">Scrapbook</h1>
+            <div class="scrap-board-bar" id="scrap-board-bar" hidden>
+                <select class="acad-input scrap-board-pick" id="scrap-board-select" aria-label="Board"></select>
+                <span class="scrap-project-tag" id="scrap-project-tag" hidden></span>
+                <button type="button" class="acad-btn acad-btn-ghost" id="scrap-board-settings">Board settings</button>
+            </div>
+            <span class="gym-spacer"></span>
+            <button type="button" class="acad-btn acad-btn-primary" id="scrap-new-board">+ New board</button>
+        </header>
+
+        <p class="acad-status" id="scrap-status" role="status" aria-live="polite"></p>
+
+        <div class="scrap-empty tile" id="scrap-empty" hidden>
+            <h2>No boards yet</h2>
+            <p>A board is a mind map for one project. Each node on it opens its own pinboard for notes, images and strings.</p>
+            <button type="button" class="acad-btn acad-btn-primary" id="scrap-empty-new">Create your first board</button>
         </div>
+
+        <!-- Graph view -->
+        <section class="scrap-stage" id="scrap-graph-stage" aria-label="Board graph" hidden>
+            <div class="scrap-world" id="scrap-graph-world">
+                <svg class="scrap-svg" id="scrap-graph-edges" aria-hidden="true"></svg>
+                <div id="scrap-graph-nodes"></div>
+            </div>
+            <div class="scrap-toolbar scrap-ui">
+                <button type="button" class="acad-btn acad-btn-ghost" id="scrap-add-node">+ Add node</button>
+                <button type="button" class="scrap-tool" id="scrap-manage-cats">Categories</button>
+                <span class="scrap-toolbar-sep"></span>
+                <button type="button" class="scrap-tool" data-zoom="out" aria-label="Zoom out">&minus;</button>
+                <button type="button" class="scrap-tool" data-zoom="fit">Fit</button>
+                <button type="button" class="scrap-tool" data-zoom="in" aria-label="Zoom in">+</button>
+            </div>
+            <p class="scrap-hint scrap-ui">Click a node to open its board &middot; drag to move &middot; scroll to zoom &middot; drag the background to pan</p>
+        </section>
+
+        <!-- Canvas view -->
+        <section class="scrap-stage scrap-canvas-stage" id="scrap-canvas-stage" aria-label="Node board" hidden>
+            <div class="scrap-world" id="scrap-canvas-world">
+                <!-- String click targets sit under the items so items always win a click;
+                     the visible strings are drawn on top without pointer events. -->
+                <svg class="scrap-svg" id="scrap-canvas-string-hits" aria-hidden="true"></svg>
+                <div id="scrap-canvas-items"></div>
+                <svg class="scrap-svg scrap-strings" id="scrap-canvas-strings" aria-hidden="true"></svg>
+            </div>
+            <div class="scrap-toolbar scrap-ui">
+                <button type="button" class="acad-btn acad-btn-ghost" id="scrap-back">&larr; Graph</button>
+                <strong class="scrap-canvas-title" id="scrap-canvas-title"></strong>
+                <span class="scrap-toolbar-sep"></span>
+                <button type="button" class="scrap-tool" id="scrap-add-note">Note</button>
+                <button type="button" class="scrap-tool" id="scrap-add-image">Image</button>
+                <button type="button" class="scrap-tool" id="scrap-add-pin">Pin</button>
+                <button type="button" class="scrap-tool" id="scrap-string-mode" aria-pressed="false">String</button>
+                <span class="scrap-swatches" id="scrap-string-colours" role="radiogroup" aria-label="String colour"></span>
+                <span class="scrap-toolbar-sep"></span>
+                <button type="button" class="scrap-tool" data-zoom="out" aria-label="Zoom out">&minus;</button>
+                <button type="button" class="scrap-tool" data-zoom="fit">Fit</button>
+                <button type="button" class="scrap-tool" data-zoom="in" aria-label="Zoom in">+</button>
+            </div>
+            <p class="scrap-hint scrap-ui" id="scrap-canvas-hint">Double-click a note to edit &middot; drop or paste images &middot; Delete removes the selection</p>
+            <input type="file" id="scrap-image-input" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+        </section>
     </main>
+
+    <!-- Board modal (new + settings) -->
+    <div class="modal-overlay" id="scrap-board-modal" role="dialog" aria-modal="true" aria-labelledby="scrap-board-title">
+        <div class="modal-content gym-modal compact-modal">
+            <div class="modal-header">
+                <h2 id="scrap-board-title">New board</h2>
+                <button type="button" class="btn-close" data-close-modal aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+            </div>
+            <form class="modal-body" id="scrap-board-form">
+                <label class="acad-field">
+                    <span>Name</span>
+                    <input class="acad-input" type="text" id="scrap-board-name" maxlength="60" placeholder="e.g. Homelab" required>
+                </label>
+                <p class="gym-hint">To tie a board to a project, link its main node from the node's "&hellip;" menu.</p>
+                <p class="gym-modal-error" id="scrap-board-error" role="alert"></p>
+                <div class="gym-modal-actions">
+                    <button type="button" class="acad-btn gym-btn-danger" id="scrap-board-delete" hidden>Delete board</button>
+                    <span class="gym-spacer"></span>
+                    <button type="button" class="acad-btn acad-btn-ghost" data-close-modal>Cancel</button>
+                    <button type="submit" class="acad-btn acad-btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Node modal (add + edit) -->
+    <div class="modal-overlay" id="scrap-node-modal" role="dialog" aria-modal="true" aria-labelledby="scrap-node-title">
+        <div class="modal-content gym-modal compact-modal">
+            <div class="modal-header">
+                <h2 id="scrap-node-title">Add node</h2>
+                <button type="button" class="btn-close" data-close-modal aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+            </div>
+            <form class="modal-body" id="scrap-node-form">
+                <label class="acad-field">
+                    <span>Title</span>
+                    <input class="acad-input" type="text" id="scrap-node-name" maxlength="40" required>
+                </label>
+                <label class="acad-field" id="scrap-node-category-field">
+                    <span>Category</span>
+                    <select class="acad-input" id="scrap-node-category"></select>
+                </label>
+                <label class="acad-field" id="scrap-node-newcat-field" hidden>
+                    <span>New category name</span>
+                    <input class="acad-input" type="text" id="scrap-node-newcat" maxlength="24" placeholder="e.g. Bugs">
+                </label>
+                <label class="acad-field" id="scrap-node-parent-field">
+                    <span>Branches from</span>
+                    <select class="acad-input" id="scrap-node-parent"></select>
+                </label>
+                <label class="acad-field">
+                    <span>Linked project</span>
+                    <select class="acad-input" id="scrap-node-project"></select>
+                </label>
+                <p class="gym-hint">Optional. A project can be linked to one node across all boards.</p>
+                <p class="gym-modal-error" id="scrap-node-error" role="alert"></p>
+                <div class="gym-modal-actions">
+                    <button type="button" class="acad-btn gym-btn-danger" id="scrap-node-delete" hidden>Delete node</button>
+                    <span class="gym-spacer"></span>
+                    <button type="button" class="acad-btn acad-btn-ghost" data-close-modal>Cancel</button>
+                    <button type="submit" class="acad-btn acad-btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Categories modal (rename / delete custom categories) -->
+    <div class="modal-overlay" id="scrap-cat-modal" role="dialog" aria-modal="true" aria-labelledby="scrap-cat-title">
+        <div class="modal-content gym-modal compact-modal">
+            <div class="modal-header">
+                <h2 id="scrap-cat-title">Categories</h2>
+                <button type="button" class="btn-close" data-close-modal aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+            </div>
+            <div class="modal-body">
+                <p class="gym-hint">Categories are shared by all boards. Click a name to rename it.</p>
+                <span class="gym-section-label">Your categories</span>
+                <div class="scrap-cat-list" id="scrap-cat-list"></div>
+                <form class="scrap-cat-add" id="scrap-cat-add-form">
+                    <input class="acad-input" type="text" id="scrap-cat-new" maxlength="24" placeholder="New category name" aria-label="New category name">
+                    <button type="submit" class="acad-btn acad-btn-ghost">Add</button>
+                </form>
+                <span class="gym-section-label">Built-in</span>
+                <div class="scrap-cat-presets" id="scrap-cat-presets"></div>
+                <p class="gym-modal-error" id="scrap-cat-error" role="alert"></p>
+                <div class="gym-modal-actions">
+                    <span class="gym-spacer"></span>
+                    <button type="button" class="acad-btn acad-btn-primary" data-close-modal>Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/features/scrapbook-core.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/features/scrapbook-canvas.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/features/scrapbook.js') }}?v=5"></script>
 {% endblock %}
