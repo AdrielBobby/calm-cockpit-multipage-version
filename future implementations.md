@@ -1,6 +1,6 @@
 # Future Implementations
 
-Status: all four views are built. Shell, Academics and Gym are on `main` (`1d66f7b`, `e70ab23`, `6a6f7a2`); Scrapbook is on the `scrapbook-view` branch (`f4341c2`), not merged into `main` yet. No stack migration needed. Flask + SQLite + vanilla JS can handle everything below.
+Status: all four views are built and on `main`: Shell `1d66f7b`, Academics `e70ab23`, Gym `6a6f7a2`, Scrapbook `f4341c2` (merged from the `scrapbook-view` branch). No stack migration needed. Flask + SQLite + vanilla JS can handle everything below.
 
 Legend: [x] done, [ ] not started
 
@@ -34,7 +34,7 @@ Legend: [x] done, [ ] not started
 - Not done / ideas: per-exercise progress graphs (data model supports it), per-set weights (currently one kg per exercise), loading the user's weekly gym log in as presets with their exercises (presets store names only), streaks, copy-last-workout.
 
 ## 3. [x] Scrapbook / noticeboard
-- Done at `/scrapbook` (`templates/scrapbook.html`, `static/js/features/scrapbook-core.js` (API, modals, pan/zoom, drag helpers), `scrapbook.js` (boards + graph), `scrapbook-canvas.js` (node canvas)). Built, tested and committed on the `scrapbook-view` branch.
+- Done at `/scrapbook` (`templates/scrapbook.html`, `static/js/features/scrapbook-core.js` (API, modals, pan/zoom, drag helpers), `scrapbook.js` (boards + graph), `scrapbook-canvas.js` (node canvas)). Built, tested and merged into `main`.
 - [x] Boards: create / rename / delete from a board picker + "Board settings" modal. A board is just a named space (e.g. "Ideas") and can hold nodes for several projects.
 - [x] Project links live on **nodes**, not boards (changed after first build): the node modal has a "Linked project" dropdown, including for the main node (linking the main node = the old "board for one project" case, and the header then shows "Project: X"). A project can be linked to one node across all boards; projects linked elsewhere are disabled in the dropdown with where they're linked (server returns 409). Linked nodes show a pill with the project name and status (Projects-modal colours). Deleting a project unlinks its node. `board_nodes.project_id` (partial unique index) + `GET /api/scrapbook/project-links`; older DBs keep an unused `boards.project_id` column.
 - [x] Graph view (entry screen): main node plus category-coloured child nodes as HTML cards over an SVG edge layer, custom code with no library. Drag nodes anywhere (position saved on drop), click a node to open its canvas, hover "+" adds a branch, "..." edits (rename, recategorise, delete). Deleting a node also deletes the nodes branching from it and their canvases. The main node can't be deleted (delete the board instead); renaming it renames the board.
@@ -56,4 +56,4 @@ Legend: [x] done, [ ] not started
 - Uploaded images need persistent disk on the host (relevant to hosting plan: Oracle Always Free OK; ephemeral platforms not). Back up `instance/cockpit.db` and `instance/uploads/` together.
 - `app.py` keeps growing (no Blueprints yet; Academics, Gym and Scrapbook routes are all inline, ~2100 lines): splitting into Flask Blueprints per view is the next cleanup. One JS file per view in `static/js/features/` is the pattern in use (Scrapbook uses three).
 - Build order: nav shell (done) -> Academics (done) -> Gym (done) -> Scrapbook (done).
-- Housekeeping: `main` and `scrapbook-view` are pushed to GitHub (origin).
+- Housekeeping: everything is pushed to GitHub (origin/main).
