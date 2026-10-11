@@ -168,6 +168,10 @@ def gym():
 def scrapbook():
     return render_template('scrapbook.html', active_view='scrapbook')
 
+@app.route('/focus')
+def focus():
+    return render_template('focus.html', active_view='focus')
+
 # --- API Routes ---
 
 @app.route('/api/subjects', methods=['GET'])
@@ -2048,6 +2052,216 @@ def scrapbook_delete_link(link_id):
     return jsonify({"status": "success"})
 
 
+# --- Focus (Pomodoro) Routes ---
+
+FOCUS_SETTINGS = {  # column: (default, min, max)
+    'focus_min': (25, 1, 180),
+    'short_break_min': (5, 1, 60),
+    'long_break_min': (25, 1, 120),
+    'sessions_before_long': (4, 1, 12),
+}
+FOCUS_PHASES = ('idle', 'focus', 'short_break', 'long_break', 'awaiting')
+FOCUS_STATUSES = ('pending', 'completed', 'skipped')
+
+def _focus_text(value, limit):
+    return ' '.join(str(value or '').split())[:limit]
+
+def _focus_description(value):
+    return str(value or '').strip()[:1000] or None
+
+def _focus_settings(raw, base=None):
+    """Validated timer settings, falling back to base (or the defaults) for missing keys."""
+    raw = raw if isinstance(raw, dict) else {}
+    out = {}
+    for key, (default, lo, hi) in FOCUS_SETTINGS.items():
+        value = raw.get(key, (base or {}).get(key, default))
+        ok, n = _gym_number(value, int, lo, hi)
+        if not ok or n is None:
+            return None, f"{key.replace('_', ' ')} must be a whole number from {lo} to {hi}"
+        out[key] = n
+    return out, None
+
+def _focus_now():
+    return datetime.now().isoformat(timespec='seconds')
+
+def _focus_plan_summary(db, plan):
+    counts = {s: 0 for s in FOCUS_STATUSES}
+    for r in db.execute('SELECT status, COUNT(*) AS n FROM focus_sessions WHERE plan_id = ? GROUP BY status', (plan['id'],)):
+        counts[r['status']] = r['n']
+    return {**dict(plan), "total": sum(counts.values()), "completed": counts['completed'],
+            "skipped": counts['skipped'], "pending": counts['pending'],
+            "remaining_focus_min": counts['pending'] * plan['focus_min']}
+
+def _focus_timer(db, plan_id):
+    row = db.execute('SELECT * FROM focus_timer WHERE plan_id = ?', (plan_id,)).fetchone()
+    if not row:
+        return {"plan_id": plan_id, "current_session_id": None, "phase": "idle", "next_phase": None,
+                "ends_at": None, "remaining_sec": None, "is_paused": False, "focus_count_since_long": 0}
+    timer = dict(row)
+    timer['is_paused'] = bool(timer['is_paused'])
+    return timer
+
+@app.route('/api/focus/plans', methods=['GET'])
+def focus_list_plans():
+    db = get_db()
+    plans = db.execute('SELECT * FROM focus_plans ORDER BY updated_at DESC, id DESC').fetchall()
+    return jsonify({"status": "success", "data": [_focus_plan_summary(db, p) for p in plans]})
+
+@app.route('/api/focus/plans', methods=['POST'])
+def focus_create_plan():
+    data = request.json or {}
+    name = _focus_text(data.get('name'), 80) or 'Untitled plan'
+    raw = data.get('sessions')
+    if not isinstance(raw, list) or not raw or len(raw) > 200:
+        return jsonify({"status": "error", "message": "a plan needs between 1 and 200 sessions"}), 400
+    sessions = []
+    for s in raw:
+        if not isinstance(s, dict) or not _focus_text(s.get('title'), 200):
+            return jsonify({"status": "error", "message": "every session needs a title"}), 400
+        sessions.append((_focus_text(s.get('title'), 200), _focus_description(s.get('description'))))
+    settings, err = _focus_settings(data.get('settings'))
+    if err:
+        return jsonify({"status": "error", "message": err}), 400
+    db = get_db()
+    now = _focus_now()
+    cur = db.execute('''
+        INSERT INTO focus_plans (name, created_at, updated_at, focus_min, short_break_min, long_break_min, sessions_before_long)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (name, now, now, settings['focus_min'], settings['short_break_min'],
+          settings['long_break_min'], settings['sessions_before_long']))
+    plan_id = cur.lastrowid
+    db.executemany('INSERT INTO focus_sessions (plan_id, position, title, description) VALUES (?, ?, ?, ?)',
+                   [(plan_id, i, title, desc) for i, (title, desc) in enumerate(sessions)])
+    db.commit()
+    return jsonify({"status": "success", "id": plan_id})
+
+@app.route('/api/focus/plans/<int:plan_id>', methods=['GET'])
+def focus_get_plan(plan_id):
+    db = get_db()
+    plan = db.execute('SELECT * FROM focus_plans WHERE id = ?', (plan_id,)).fetchone()
+    if not plan:
+        return jsonify({"status": "error", "message": "plan not found"}), 404
+    sessions = [dict(r) for r in db.execute(
+        'SELECT * FROM focus_sessions WHERE plan_id = ? ORDER BY position ASC, id ASC', (plan_id,))]
+    return jsonify({"status": "success", "data": {
+        "plan": _focus_plan_summary(db, plan), "sessions": sessions, "timer": _focus_timer(db, plan_id)}})
+
+@app.route('/api/focus/plans/<int:plan_id>', methods=['PATCH'])
+def focus_update_plan(plan_id):
+    db = get_db()
+    plan = db.execute('SELECT * FROM focus_plans WHERE id = ?', (plan_id,)).fetchone()
+    if not plan:
+        return jsonify({"status": "error", "message": "plan not found"}), 404
+    data = request.json or {}
+    name = _focus_text(data.get('name'), 80) if 'name' in data else plan['name']
+    if not name:
+        return jsonify({"status": "error", "message": "plan name is required"}), 400
+    settings, err = _focus_settings(data.get('settings'), dict(plan))
+    if err:
+        return jsonify({"status": "error", "message": err}), 400
+    db.execute('''
+        UPDATE focus_plans SET name = ?, focus_min = ?, short_break_min = ?, long_break_min = ?,
+            sessions_before_long = ?, updated_at = ? WHERE id = ?
+    ''', (name, settings['focus_min'], settings['short_break_min'], settings['long_break_min'],
+          settings['sessions_before_long'], _focus_now(), plan_id))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/focus/plans/<int:plan_id>', methods=['DELETE'])
+def focus_delete_plan(plan_id):
+    db = get_db()
+    db.execute('DELETE FROM focus_sessions WHERE plan_id = ?', (plan_id,))
+    db.execute('DELETE FROM focus_timer WHERE plan_id = ?', (plan_id,))
+    db.execute('DELETE FROM focus_plans WHERE id = ?', (plan_id,))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/focus/sessions/<int:session_id>', methods=['PATCH'])
+def focus_update_session(session_id):
+    db = get_db()
+    row = db.execute('SELECT * FROM focus_sessions WHERE id = ?', (session_id,)).fetchone()
+    if not row:
+        return jsonify({"status": "error", "message": "session not found"}), 404
+    data = request.json or {}
+    title = _focus_text(data.get('title'), 200) if 'title' in data else row['title']
+    if not title:
+        return jsonify({"status": "error", "message": "session title is required"}), 400
+    description = _focus_description(data.get('description')) if 'description' in data else row['description']
+    status = data.get('status', row['status'])
+    if status not in FOCUS_STATUSES:
+        return jsonify({"status": "error", "message": "status must be pending, completed or skipped"}), 400
+    completed_at = row['completed_at']
+    if status != row['status']:
+        completed_at = _focus_now() if status == 'completed' else None
+    db.execute('UPDATE focus_sessions SET title = ?, description = ?, status = ?, completed_at = ? WHERE id = ?',
+               (title, description, status, completed_at, session_id))
+    db.execute('UPDATE focus_plans SET updated_at = ? WHERE id = ?', (_focus_now(), row['plan_id']))
+    db.commit()
+    return jsonify({"status": "success"})
+
+FOCUS_PART_RE = re.compile(r'\s*\(\d+/\d+\)$')
+
+@app.route('/api/focus/sessions/<int:session_id>/extend', methods=['POST'])
+def focus_extend_session(session_id):
+    """Adds one more Pomodoro for a topic: a pending copy right after this session, with the
+    topic's parts renumbered "Title (1/n)" .. "Title (n/n)"."""
+    db = get_db()
+    row = db.execute('SELECT * FROM focus_sessions WHERE id = ?', (session_id,)).fetchone()
+    if not row:
+        return jsonify({"status": "error", "message": "session not found"}), 404
+    base = FOCUS_PART_RE.sub('', row['title'])
+    group = [r for r in db.execute('SELECT id, title FROM focus_sessions WHERE plan_id = ? ORDER BY position, id',
+                                   (row['plan_id'],)) if FOCUS_PART_RE.sub('', r['title']) == base]
+    if len(group) >= 12:
+        return jsonify({"status": "error", "message": "a topic can have at most 12 Pomodoros"}), 400
+    db.execute('UPDATE focus_sessions SET position = position + 1 WHERE plan_id = ? AND position > ?',
+               (row['plan_id'], row['position']))
+    cur = db.execute('INSERT INTO focus_sessions (plan_id, position, title, description) VALUES (?, ?, ?, ?)',
+                     (row['plan_id'], row['position'] + 1, base, row['description']))
+    ids = [r['id'] for r in group]
+    ids.insert(ids.index(session_id) + 1, cur.lastrowid)
+    for i, sid in enumerate(ids, 1):
+        db.execute('UPDATE focus_sessions SET title = ? WHERE id = ?', (f"{base} ({i}/{len(ids)})"[:200], sid))
+    db.execute('UPDATE focus_plans SET updated_at = ? WHERE id = ?', (_focus_now(), row['plan_id']))
+    db.commit()
+    return jsonify({"status": "success", "id": cur.lastrowid})
+
+@app.route('/api/focus/sessions/<int:session_id>', methods=['DELETE'])
+def focus_delete_session(session_id):
+    db = get_db()
+    db.execute('DELETE FROM focus_sessions WHERE id = ?', (session_id,))
+    db.execute('UPDATE focus_timer SET current_session_id = NULL WHERE current_session_id = ?', (session_id,))
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/focus/plans/<int:plan_id>/timer', methods=['PUT'])
+def focus_put_timer(plan_id):
+    """Stores the client's timer state; the browser does the ticking."""
+    db = get_db()
+    if not db.execute('SELECT 1 FROM focus_plans WHERE id = ?', (plan_id,)).fetchone():
+        return jsonify({"status": "error", "message": "plan not found"}), 404
+    data = request.json or {}
+    phase, next_phase = data.get('phase'), data.get('next_phase')
+    if phase not in FOCUS_PHASES or next_phase not in (None, 'focus', 'short_break', 'long_break'):
+        return jsonify({"status": "error", "message": "invalid timer phase"}), 400
+    ok_s, session_id = _gym_number(data.get('current_session_id'), int, 1, 2**62)
+    ok_e, ends_at = _gym_number(data.get('ends_at'), int, 0, 2**53)
+    ok_r, remaining = _gym_number(data.get('remaining_sec'), int, 0, 6 * 3600)
+    ok_c, count = _gym_number(data.get('focus_count_since_long'), int, 0, 99)
+    if not (ok_s and ok_e and ok_r and ok_c):
+        return jsonify({"status": "error", "message": "invalid timer values"}), 400
+    db.execute('''
+        INSERT INTO focus_timer (plan_id, current_session_id, phase, next_phase, ends_at, remaining_sec, is_paused, focus_count_since_long)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(plan_id) DO UPDATE SET current_session_id = excluded.current_session_id, phase = excluded.phase,
+            next_phase = excluded.next_phase, ends_at = excluded.ends_at, remaining_sec = excluded.remaining_sec,
+            is_paused = excluded.is_paused, focus_count_since_long = excluded.focus_count_since_long
+    ''', (plan_id, session_id, phase, next_phase, ends_at, remaining, 1 if data.get('is_paused') else 0, count or 0))
+    db.execute('UPDATE focus_plans SET updated_at = ? WHERE id = ?', (_focus_now(), plan_id))
+    db.commit()
+    return jsonify({"status": "success"})
+
+
 def init_db_schema():
     with app.app_context():
         db = get_db()
@@ -2212,6 +2426,44 @@ def init_db_schema():
             )
         ''')
         db.execute('CREATE INDEX IF NOT EXISTS ix_board_links_node ON board_links (node_id)')
+
+        # Focus (Pomodoro)
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS focus_plans (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                name                 TEXT NOT NULL,
+                created_at           TEXT NOT NULL,
+                updated_at           TEXT NOT NULL,
+                focus_min            INTEGER NOT NULL DEFAULT 25,
+                short_break_min      INTEGER NOT NULL DEFAULT 5,
+                long_break_min       INTEGER NOT NULL DEFAULT 25,
+                sessions_before_long INTEGER NOT NULL DEFAULT 4
+            )
+        ''')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS focus_sessions (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_id      INTEGER NOT NULL,
+                position     INTEGER NOT NULL DEFAULT 0,
+                title        TEXT NOT NULL,
+                description  TEXT,
+                status       TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'completed', 'skipped')),
+                completed_at TEXT
+            )
+        ''')
+        db.execute('CREATE INDEX IF NOT EXISTS ix_focus_sessions_plan ON focus_sessions (plan_id)')
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS focus_timer (
+                plan_id                INTEGER PRIMARY KEY,
+                current_session_id     INTEGER,
+                phase                  TEXT NOT NULL DEFAULT 'idle',
+                next_phase             TEXT,
+                ends_at                INTEGER,
+                remaining_sec          INTEGER,
+                is_paused              INTEGER NOT NULL DEFAULT 0,
+                focus_count_since_long INTEGER NOT NULL DEFAULT 0
+            )
+        ''')
         db.commit()
 
 init_db_schema()

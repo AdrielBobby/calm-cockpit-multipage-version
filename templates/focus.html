@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <main class="focus-page">
+        <header class="acad-header">
+            <h1 class="acad-title">Focus</h1>
+            <div class="focus-header-actions">
+                <label class="acad-field focus-plan-field" id="focus-plan-field" hidden>
+                    <span>Plan</span>
+                    <select class="acad-input" id="focus-plan-select"></select>
+                </label>
+                <button type="button" class="acad-btn acad-btn-ghost" id="focus-settings-btn" hidden>Settings</button>
+                <button type="button" class="acad-btn acad-btn-primary" id="focus-import-btn">+ Import plan</button>
+            </div>
+        </header>
+
+        <p class="acad-status" id="focus-status" role="status" aria-live="polite"></p>
+
+        <section class="tile focus-empty" id="focus-empty" hidden>
+            <h2>No study plans yet</h2>
+            <p>Paste a Pomodoro plan from your planner chat and it becomes a ready-to-run session queue.</p>
+            <button type="button" class="acad-btn acad-btn-primary" id="focus-empty-import">+ Import plan</button>
+        </section>
+
+        <div class="focus-grid" id="focus-main" hidden>
+            <section class="tile focus-timer-card" aria-labelledby="focus-phase">
+                <div class="focus-phase" id="focus-phase" data-phase="idle">Ready</div>
+                <div class="focus-clock" id="focus-clock" aria-live="off">25:00</div>
+                <div class="focus-current">
+                    <div class="focus-current-title" id="focus-current-title"></div>
+                    <div class="focus-current-desc" id="focus-current-desc"></div>
+                </div>
+                <div class="focus-controls" id="focus-controls"></div>
+                <p class="focus-next" id="focus-next"></p>
+                <p class="acad-hint focus-keys">Space pauses or resumes.</p>
+            </section>
+
+            <section class="tile focus-stats-card">
+                <div class="tile-header"><h2>Progress</h2></div>
+                <div class="gym-stats focus-stats">
+                    <div class="gym-stat"><span class="gym-stat-value" id="focus-stat-done">&mdash;</span><span class="gym-stat-label">Pomodoros done</span></div>
+                    <div class="gym-stat"><span class="gym-stat-value" id="focus-stat-left">&mdash;</span><span class="gym-stat-label">Focus time left</span></div>
+                    <div class="gym-stat"><span class="gym-stat-value" id="focus-stat-finish">&mdash;</span><span class="gym-stat-label">Est. finish (with breaks)</span></div>
+                </div>
+                <div class="focus-progress" aria-hidden="true"><div class="focus-progress-bar" id="focus-progress-bar"></div></div>
+                <p class="acad-hint" id="focus-timing-hint"></p>
+            </section>
+
+            <section class="tile focus-queue-card">
+                <div class="tile-header"><h2>Sessions</h2></div>
+                <ol class="focus-queue" id="focus-queue"></ol>
+            </section>
+        </div>
+    </main>
+
+    <!-- Import modal -->
+    <div class="modal-overlay" id="focus-import-modal" role="dialog" aria-modal="true" aria-labelledby="focus-import-title">
+        <div class="modal-content gym-modal">
+            <div class="modal-header">
+                <h2 id="focus-import-title">Import plan</h2>
+                <button type="button" class="btn-close" id="focus-import-close" aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+            </div>
+            <div class="modal-body">
+                <label class="acad-field">
+                    <span>Plan name</span>
+                    <input class="acad-input" type="text" id="focus-import-name" maxlength="80" placeholder="e.g. DBMS Modules 3–4">
+                </label>
+                <label class="acad-field">
+                    <span>Paste your plan</span>
+                    <textarea class="acad-input focus-paste" id="focus-import-text" rows="9" spellcheck="false"
+                        placeholder="Pomodoro 1 — SQL basics&#10;Pomodoro 2 — DDL: CREATE, ALTER, DROP&#10;Pomodoro 3 — DML and DCL&#10;&#10;Also works: 1. Title · Session 1: Title · Pomodoro 2–3 — Title · Title (2 Pomodoros)&#10;Or paste a table with Topic / Pomodoros / Coverage columns."></textarea>
+                </label>
+                <div class="gym-section-label">Preview <span class="gym-unit" id="focus-import-count"></span></div>
+                <ol class="focus-preview" id="focus-import-preview"></ol>
+                <ul class="focus-warnings" id="focus-import-warnings"></ul>
+                <p class="gym-modal-error" id="focus-import-error" role="alert"></p>
+                <div class="gym-modal-actions">
+                    <span class="gym-hint">25 min focus, 5 min breaks, 25 min long break every 4. Change it later in Settings.</span>
+                    <span class="gym-spacer"></span>
+                    <button type="button" class="acad-btn acad-btn-ghost" id="focus-import-cancel">Cancel</button>
+                    <button type="button" class="acad-btn acad-btn-primary" id="focus-import-save" disabled>Create plan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings modal -->
+    <div class="modal-overlay" id="focus-settings-modal" role="dialog" aria-modal="true" aria-labelledby="focus-settings-title">
+        <div class="modal-content gym-modal compact-modal">
+            <div class="modal-header">
+                <h2 id="focus-settings-title">Plan settings</h2>
+                <button type="button" class="btn-close" id="focus-settings-close" aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+            </div>
+            <div class="modal-body">
+                <label class="acad-field">
+                    <span>Plan name</span>
+                    <input class="acad-input" type="text" id="focus-set-name" maxlength="80">
+                </label>
+                <div class="focus-settings-grid">
+                    <label class="acad-field"><span>Focus (min)</span><input class="acad-input" type="number" id="focus-set-focus" min="1" max="180" inputmode="numeric"></label>
+                    <label class="acad-field"><span>Short break (min)</span><input class="acad-input" type="number" id="focus-set-short" min="1" max="60" inputmode="numeric"></label>
+                    <label class="acad-field"><span>Long break (min)</span><input class="acad-input" type="number" id="focus-set-long" min="1" max="120" inputmode="numeric"></label>
+                    <label class="acad-field"><span>Long break every</span><input class="acad-input" type="number" id="focus-set-every" min="1" max="12" inputmode="numeric"></label>
+                </div>
+                <p class="gym-hint">Changes apply from the next phase; a running timer keeps its length.</p>
+                <p class="gym-modal-error" id="focus-settings-error" role="alert"></p>
+                <div class="gym-modal-actions">
+                    <button type="button" class="acad-btn gym-btn-danger" id="focus-plan-delete">Delete plan</button>
+                    <span class="gym-spacer"></span>
+                    <button type="button" class="acad-btn acad-btn-ghost" id="focus-settings-cancel">Cancel</button>
+                    <button type="button" class="acad-btn acad-btn-primary" id="focus-settings-save">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/features/focus-parser.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/features/focus-timer.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/features/focus.js') }}?v=2"></script>
+{% endblock %}

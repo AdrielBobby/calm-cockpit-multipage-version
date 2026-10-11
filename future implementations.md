@@ -1,6 +1,6 @@
 # Future Implementations
 
-Status: all four views are built and on `main`: Shell `1d66f7b`, Academics `e70ab23`, Gym `6a6f7a2`, Scrapbook `f4341c2` (merged from the `scrapbook-view` branch). No stack migration needed. Flask + SQLite + vanilla JS can handle everything below.
+Status: Shell `1d66f7b`, Academics `e70ab23`, Gym `6a6f7a2`, Scrapbook `f4341c2` are on `main`; Focus (Pomodoro) is on `main` too. No stack migration needed. Flask + SQLite + vanilla JS can handle everything below.
 
 Legend: [x] done, [ ] not started
 
@@ -48,6 +48,18 @@ Legend: [x] done, [ ] not started
 - Settled while building: preset categories are Ideas, Research, Design, Tasks, Resources, Inspiration (new ones can be added from the node modal or the Categories manager); strings attach to any item (notes, images, pins).
 - Phone: usable layout (header compacts, no page overflow at 820 / 390px), but interactions are desktop-first: no pinch-zoom, and hover controls are always shown on touch screens.
 - Not done / ideas: pinch-zoom and touch polish, rotating items, image captions, multi-select, undo, recolouring an existing string, moving an item between nodes, recolouring categories, showing a board's summary on the Projects modal.
+
+## 4. [x] Focus view (Pomodoro plan importer)
+- Done at `/focus` (`templates/focus.html`, `static/js/features/focus-parser.js` (pure text parser), `focus-timer.js` (pure phase engine), `focus.js` (UI)). Built from the "Padutham Timer" PRD, milestones 1-4.
+- Decisions: **phases never auto-start**: when one ends it chimes (WebAudio), sends a browser notification and waits for "Start break" / "Start next". Default 25 / 5 / 25 min, long break every 4; settings are per plan.
+- [x] Import: paste a plan, live preview, then Create. Recognises `Pomodoro 1 — Title`, `Pomodoro 1: Title`, `Session 1: Title`, `1. Title`, `1) Title`, `#1 Title` (markdown stripped). If any Pomodoro/Session lines exist only those count, so numbered sub-points become description. A spaced dash splits off a description (a colon does not: "DDL: CREATE, ALTER" stays the title). Bulleted/indented/following lines append to the description; headings and "Short break" lines are ignored. Plan name comes from the first line before the sessions. Warns about repeated or missing numbers.
+- [x] Multi-Pomodoro topics: tables (markdown `| Topic | Pomodoros | Coverage |` or tab-separated text copied from a rendered chat table; columns picked by header name) and line forms `Pomodoro 2–3 — Title`, `Title (2 Pomodoros)`, `Title x2`, `Title — 2 pomodoros`. A topic worth N becomes `Title (1/N)` … `(N/N)`; if its coverage has exactly N `;`-separated parts, each Pomodoro gets one part. Max 12 per topic. Queue rows have a **+1** button (`POST /api/focus/sessions/<id>/extend`) that inserts another Pomodoro for that topic and renumbers its parts.
+- [x] Timer: running phases store `ends_at` (epoch ms) and the countdown is recomputed from it, so it survives refreshes and background tabs; paused phases store `remaining_sec`. A phase that ran out while the page was closed is finished silently on load. Countdown shows in the tab title. Space pauses/resumes.
+- [x] Controls: Start, Pause/Resume, Mark complete (counts), Skip (marked skipped, never counts toward the long break), Stop (session stays pending), Skip break / End break.
+- [x] Queue: inline edit title + description (Enter / Escape), Skip / Restore, delete. Stats: done / total, focus time left, estimated finish including breaks, progress bar.
+- [x] Plans: picker (last one remembered in localStorage), settings modal with rename and delete.
+- [x] Tables: `focus_plans`, `focus_sessions` (pending / completed / skipped, completed_at), `focus_timer` (one row per plan). Routes under `/api/focus/*`.
+- Not done / ideas: AI import (PRD milestone 5: Claude API endpoint for messy planner replies, needs an API key on the server), daily/weekly focus stats (data supports it via `completed_at`), drag-to-reorder sessions, an Overview tile for the active plan, linking plans to Academics subjects.
 
 ## Dropped
 - Valorant tracking page: no public Riot API for player stats, so it was scrapped.

@@ -11,12 +11,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=28">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=29">
 </head>
 <body>
 
     <nav class="view-nav" aria-label="Views">
-        {% for key, label, endpoint in [('overview', 'Overview', 'index'), ('academics', 'Academics', 'academics'), ('gym', 'Gym', 'gym'), ('scrapbook', 'Scrapbook', 'scrapbook')] %}
+        {% for key, label, endpoint in [('overview', 'Overview', 'index'), ('academics', 'Academics', 'academics'), ('gym', 'Gym', 'gym'), ('scrapbook', 'Scrapbook', 'scrapbook'), ('focus', 'Focus', 'focus')] %}
         <a class="view-nav-tab{% if active_view == key %} active{% endif %}" href="{{ url_for(endpoint) }}"{% if active_view == key %} aria-current="page"{% endif %}>{{ label }}</a>
         {% endfor %}
     </nav>
