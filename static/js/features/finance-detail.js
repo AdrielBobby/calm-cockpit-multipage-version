@@ -13,15 +13,15 @@ window.loadFinanceModal = async function(modalBody) {
         html += `
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
-                    <div style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
+                    <div style="background: var(--tint-1); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
                         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Net Balance</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-purple);">₹${summaryResult.data.balance}</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent);">₹${summaryResult.data.balance}</div>
                     </div>
         `;
         
         for (const [acc, bal] of Object.entries(summaryResult.data.accounts)) {
             html += `
-                <div style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
+                <div style="background: var(--tint-1); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
                     <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">${acc}</div>
                     <div style="font-size: 1.2rem; font-weight: 600;">₹${bal}</div>
                 </div>
@@ -37,16 +37,16 @@ window.loadFinanceModal = async function(modalBody) {
 
         // 2. Add Transaction Form
         html += `
-            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--card-border);">
+            <div style="background: var(--tint-1); padding: 20px; border-radius: 12px; border: 1px solid var(--card-border);">
                 <h3 style="margin-bottom: 16px; font-size: 1rem;">Add Transaction</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; align-items: flex-end;">
                     <div>
                         <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Date</label>
-                        <input type="date" id="ft-date" value="${new Date().toISOString().split('T')[0]}" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 8px; border-radius: 6px;">
+                        <input type="date" id="ft-date" value="${new Date().toISOString().split('T')[0]}" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px;">
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Account</label>
-                        <select id="ft-account" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 8px; border-radius: 6px;">
+                        <select id="ft-account" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px;">
                             <option value="Cash">Cash</option>
                             <option value="HDFC">HDFC</option>
                             <option value="Metro Card">Metro Card</option>
@@ -54,20 +54,20 @@ window.loadFinanceModal = async function(modalBody) {
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Type</label>
-                        <select id="ft-type" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 8px; border-radius: 6px;">
+                        <select id="ft-type" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px;">
                             <option value="expense">Expense</option>
                             <option value="income">Income</option>
                         </select>
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Amount</label>
-                        <input type="number" id="ft-amount" placeholder="0" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 8px; border-radius: 6px;">
+                        <input type="number" id="ft-amount" placeholder="0" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px;">
                     </div>
                     <div>
                         <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Category</label>
-                        <input type="text" id="ft-category" placeholder="Food, Travel..." style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 8px; border-radius: 6px;">
+                        <input type="text" id="ft-category" placeholder="Food, Travel..." style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px;">
                     </div>
-                    <button onclick="addFinanceTransaction()" style="background: var(--accent-purple); color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Add</button>
+                    <button onclick="addFinanceTransaction()" style="background: var(--accent); color: var(--on-accent); border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Add</button>
                 </div>
             </div>
         `;

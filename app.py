@@ -1645,7 +1645,7 @@ SCRAP_IMAGE_TYPES = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 SCRAP_ITEM_TYPES = ('note', 'image', 'pin')
 SCRAP_NOTE_COLOURS = ('yellow', 'pink', 'blue', 'green')
 SCRAP_PRESET_CATEGORIES = [
-    ('Ideas', '#f59e0b'), ('Research', '#60a5fa'), ('Design', '#a78bfa'),
+    ('Ideas', '#f59e0b'), ('Research', '#60a5fa'), ('Design', '#14b8a6'),
     ('Tasks', '#06d6a0'), ('Resources', '#f472b6'), ('Inspiration', '#fb923c'),
 ]
 SCRAP_CATEGORY_PALETTE = ['#22d3ee', '#84cc16', '#e879f9', '#f87171', '#facc15', '#2dd4bf']

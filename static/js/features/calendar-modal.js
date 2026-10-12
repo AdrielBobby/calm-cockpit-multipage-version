@@ -38,8 +38,8 @@ function renderCompactCalendarUI(container, events) {
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="font-size: 1.1rem; font-weight: 700;">${monthLabel}</h3>
                 <div style="display: flex; gap: 8px;">
-                    <button onclick="navMonth(-1)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">&lt;</button>
-                    <button onclick="navMonth(1)" style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">&gt;</button>
+                    <button onclick="navMonth(-1)" style="background: var(--tint-2); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">&lt;</button>
+                    <button onclick="navMonth(1)" style="background: var(--tint-2); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;">&gt;</button>
                 </div>
             </div>
 
@@ -51,18 +51,18 @@ function renderCompactCalendarUI(container, events) {
 
             <!-- Agenda View -->
             <div id="agenda-section" style="border-top: 1px solid var(--card-border); padding-top: 20px;">
-                <h4 id="agenda-date" style="margin-bottom: 12px; font-size: 0.9rem; color: var(--accent-purple);">Agenda</h4>
+                <h4 id="agenda-date" style="margin-bottom: 12px; font-size: 0.9rem; color: var(--accent);">Agenda</h4>
                 <div id="agenda-events" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
                     <p style="color: var(--text-muted); font-size: 0.8rem;">Select a date to see events.</p>
                 </div>
 
                 <!-- Add Event Compact Form -->
-                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px;">
+                <div style="background: var(--tint-1); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px;">
                     <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <input type="text" id="ev-title" placeholder="Event Title" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px; font-size: 0.85rem;">
+                        <input type="text" id="ev-title" placeholder="Event Title" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 0.85rem;">
                         <div style="display: flex; gap: 10px;">
-                            <input type="date" id="ev-date" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px; font-size: 0.85rem;">
-                            <select id="ev-label" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px; font-size: 0.85rem;">
+                            <input type="date" id="ev-date" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 0.85rem;">
+                            <select id="ev-label" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 0.85rem;">
                                 <option value="Personal">Personal</option>
                                 <option value="Exam">Exam</option>
                                 <option value="Project">Project</option>
@@ -70,12 +70,12 @@ function renderCompactCalendarUI(container, events) {
                                 <option value="Clg">Clg</option>
                             </select>
                         </div>
-                        <select id="ev-status" style="background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px; font-size: 0.85rem;">
+                        <select id="ev-status" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 0.85rem;">
                             <option value="planned">Planned</option>
                             <option value="in_progress">In Progress</option>
                             <option value="done">Done</option>
                         </select>
-                        <button onclick="addCalEvent()" style="background: var(--accent-purple); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">Add Event</button>
+                        <button onclick="addCalEvent()" style="background: var(--accent); color: var(--on-accent); border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">Add Event</button>
                     </div>
                 </div>
             </div>
@@ -149,20 +149,20 @@ window.startEditEvent = function(event, dateStr) {
     const originalContent = item.innerHTML;
     
     item.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--accent-purple);">
+        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; background: var(--tint-1); padding: 12px; border-radius: 8px; border: 1px solid var(--accent);">
             <div style="display: flex; gap: 8px;">
-                <input type="date" id="edit-date-${event.id}" value="${event.date}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.85rem; color-scheme: dark;">
-                <input type="text" id="edit-title-${event.id}" value="${event.title}" style="flex: 2; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+                <input type="date" id="edit-date-${event.id}" value="${event.date}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 4px; font-size: 0.85rem; ">
+                <input type="text" id="edit-title-${event.id}" value="${event.title}" style="flex: 2; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 4px; font-size: 0.85rem;">
             </div>
             <div style="display: flex; gap: 8px;">
-                <select id="edit-label-${event.id}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.8rem;">
+                <select id="edit-label-${event.id}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 4px; font-size: 0.8rem;">
                     <option value="Personal" ${event.label === 'Personal' ? 'selected' : ''}>Personal</option>
                     <option value="Exam" ${event.label === 'Exam' ? 'selected' : ''}>Exam</option>
                     <option value="Project" ${event.label === 'Project' ? 'selected' : ''}>Project</option>
                     <option value="Study" ${event.label === 'Study' ? 'selected' : ''}>Study</option>
                     <option value="Clg" ${event.label === 'Clg' ? 'selected' : ''}>Clg</option>
                 </select>
-                <select id="edit-status-${event.id}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 6px; border-radius: 4px; font-size: 0.8rem;">
+                <select id="edit-status-${event.id}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 4px; font-size: 0.8rem;">
                     <option value="planned" ${event.status === 'planned' ? 'selected' : ''}>Planned</option>
                     <option value="in_progress" ${event.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
                     <option value="done" ${event.status === 'done' ? 'selected' : ''}>Done</option>
@@ -170,7 +170,7 @@ window.startEditEvent = function(event, dateStr) {
             </div>
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
                 <button onclick="cancelEditEvent(${event.id}, '${dateStr}')" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Cancel</button>
-                <button onclick="saveEditEvent(${event.id}, '${dateStr}')" style="background: var(--accent-purple); border: none; color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Save</button>
+                <button onclick="saveEditEvent(${event.id}, '${dateStr}')" style="background: var(--accent); border: none; color: var(--on-accent); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Save</button>
             </div>
         </div>
     `;

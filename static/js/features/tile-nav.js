@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const statusLabel = (e.status || 'planned').replace('_', ' ');
                         html += `
                             <li style="display:flex; align-items:center; gap:10px;
-                                       background:rgba(255,255,255,0.02);
+                                       background:var(--tint-1);
                                        border:1px solid var(--card-border);
                                        border-left:3px solid ${accentColor};
                                        padding:8px 12px; border-radius:8px;">
@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      role="button" tabindex="0"
                      onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile(${proj.id})"
                      onmouseenter="this.style.borderColor='rgba(6,214,160,0.4)'; this.style.background='rgba(6,214,160,0.06)';"
-                     onmouseleave="this.style.borderColor='rgba(6,214,160,0.18)'; this.style.background='rgba(255,255,255,0.02)';">
+                     onmouseleave="this.style.borderColor='rgba(6,214,160,0.18)'; this.style.background='var(--tint-1)';">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                         <span style="font-weight:500; font-size:0.9rem; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${proj.name}</span>
                         <span style="flex-shrink:0; font-size:0.65rem; padding:2px 7px; border-radius:10px;
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      role="button" tabindex="0"
                      onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile(${proj.id})"
                      onmouseenter="this.style.borderColor='rgba(245,158,11,0.4)'; this.style.background='rgba(245,158,11,0.06)';"
-                     onmouseleave="this.style.borderColor='rgba(245,158,11,0.18)'; this.style.background='rgba(255,255,255,0.015)';">
+                     onmouseleave="this.style.borderColor='rgba(245,158,11,0.18)'; this.style.background='var(--tint-1)';">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                         <span style="font-weight:500; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${proj.name}</span>
                         <span style="flex-shrink:0; font-size:0.65rem; padding:2px 7px; border-radius:10px;

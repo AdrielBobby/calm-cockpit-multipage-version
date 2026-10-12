@@ -62,7 +62,7 @@
             <div class="tile-content" id="attendance-snapshot-container">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 {% for item in attendance %}
-                    <div class="snapshot-item" data-subject="{{ item.subject }}" style="text-align: center; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+                    <div class="snapshot-item" data-subject="{{ item.subject }}" style="text-align: center; background: var(--tint-1); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
                         {# Server-rendered mirror of window.attendanceColor() in static/js/main.js — thresholds/colors must stay in sync (Jinja can't call the JS helper) #}
                         <div class="percentage-value" style="font-size: 1.2rem; font-weight: bold; color: {% if item.percentage >= 80 %}var(--accent-teal){% elif item.percentage >= 60 %}var(--accent-yellow){% else %}var(--accent-red){% endif %};">
                             {{ item.percentage }}%
@@ -82,7 +82,7 @@
             <div class="tile-content" id="grades-tile-content">
                 {% if grades %}
                     <div style="text-align: center; margin-bottom: 16px;">
-                        <span style="font-size: 2.5rem; font-weight: 700; color: var(--accent-purple);">{{ grades.cgpa }}</span>
+                        <span style="font-size: 2.5rem; font-weight: 700; color: var(--accent);">{{ grades.cgpa }}</span>
                         <div style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">Current CGPA</div>
                     </div>
                     <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse;">
@@ -91,7 +91,7 @@
                             <th style="text-align: right; padding: 4px;">SGPA</th>
                         </tr>
                         {% for sem in grades.history[:4] %}
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
+                        <tr style="border-bottom: 1px solid var(--tint-1);">
                             <td style="padding: 8px 4px;">Semester {{ sem.number }}</td>
                             <td style="text-align: right; padding: 8px 4px; font-weight: 600;">{{ sem.sgpa if sem.sgpa is not none else '&mdash;' }}</td>
                         </tr>
@@ -230,13 +230,13 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=12"></script>
-    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=12"></script>
-    <script src="{{ url_for('static', filename='js/features/attendance-heatmap.js') }}?v=12"></script>
-    <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=12"></script>
-    <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=12"></script>
-    <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=12"></script>
-    <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=11"></script>
-    <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=14"></script>
+    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=12x"></script>
+    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=12x"></script>
+    <script src="{{ url_for('static', filename='js/features/attendance-heatmap.js') }}?v=12x"></script>
+    <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=12x"></script>
+    <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=12x"></script>
+    <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=12x"></script>
+    <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=11x"></script>
+    <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=14x"></script>
     <script src="{{ url_for('static', filename='js/modals.js') }}?v=14"></script>
 {% endblock %}

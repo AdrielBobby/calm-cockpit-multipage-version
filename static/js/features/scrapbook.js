@@ -7,7 +7,7 @@
     // Same colours and labels as the Projects modal
     const PROJECT_STATUS = {
         in_progress: { label: 'In progress', colour: 'var(--accent-teal)' },
-        planned:     { label: 'Planned',     colour: 'var(--accent-purple)' },
+        planned:     { label: 'Planned',     colour: 'var(--accent)' },
         paused:      { label: 'Paused',      colour: 'var(--accent-yellow)' },
         done:        { label: 'Done',        colour: 'var(--text-muted)' },
     };
@@ -100,7 +100,7 @@
 
     function nodeHtml(n) {
         const isRoot = n.parent_id == null;
-        const colour = isRoot ? 'var(--accent-purple)' : categoryColour(n.category);
+        const colour = isRoot ? 'var(--accent)' : categoryColour(n.category);
         const count = n.item_count ? `${n.item_count} item${n.item_count === 1 ? '' : 's'}` : 'Empty';
         const status = PROJECT_STATUS[n.project_status];
         const project = n.project_name

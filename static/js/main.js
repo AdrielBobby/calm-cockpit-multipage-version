@@ -193,7 +193,7 @@ window.refreshAttendanceSnapshot = async function() {
             result.data.forEach(item => {
                 const color = window.attendanceColor(item.percentage);
                 html += `
-                    <div class="snapshot-item" data-subject="${item.subject}" style="text-align: center; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+                    <div class="snapshot-item" data-subject="${item.subject}" style="text-align: center; background: var(--tint-1); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
                         <div class="percentage-value" style="font-size: 1.2rem; font-weight: bold; color: ${color};">
                             ${item.percentage}%
                         </div>

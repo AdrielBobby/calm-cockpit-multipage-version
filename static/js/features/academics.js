@@ -75,9 +75,9 @@
             return;
         }
         const css = getComputedStyle(document.documentElement);
-        const purple = css.getPropertyValue('--accent-purple').trim();
+        const purple = css.getPropertyValue('--accent').trim();
         const muted = css.getPropertyValue('--text-muted').trim();
-        const grid = 'rgba(255,255,255,0.06)';
+        const grid = css.getPropertyValue('--chart-grid').trim();
         const labels = state.semesters.map((s) => 'Sem ' + s.number);
         const values = state.semesters.map((s) => s.sgpa);
         const scored = values.filter((v) => v != null);
@@ -104,6 +104,9 @@
             }
         });
     }
+
+    // Chart.js colours are resolved once at draw time, so redraw after a theme flip.
+    document.addEventListener('themechange', renderChart);
 
     async function saveSemester(number, sgpa, selectForMarks) {
         try {

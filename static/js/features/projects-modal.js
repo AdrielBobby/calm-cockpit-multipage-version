@@ -13,14 +13,14 @@
 // ── Status helpers ────────────────────────────────────────────────
 const STATUS_COLORS = {
     'in_progress': 'var(--accent-teal)',
-    'planned':     'var(--accent-purple)',
+    'planned':     'var(--accent)',
     'paused':      'var(--accent-yellow)',
     'done':        'var(--text-muted)'
 };
 
 const STATUS_BG = {
     'in_progress': 'rgba(6, 214, 160, 0.12)',
-    'planned':     'rgba(167, 139, 250, 0.12)',
+    'planned':     'color-mix(in srgb, var(--accent) 12%, transparent)',
     'paused':      'rgba(245, 158, 11, 0.12)',
     'done':        'rgba(148, 163, 184, 0.08)'
 };
@@ -56,22 +56,22 @@ function renderProjectsList(modalBody, projects) {
 
     // Add Project form
     html += `
-        <div style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
+        <div style="background: var(--tint-1); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
             <div style="display: flex; gap: 12px; align-items: flex-end;">
                 <div style="flex: 1;">
                     <label style="display:block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">Project Name</label>
-                    <input type="text" id="new-proj-name" placeholder="e.g. My Awesome App" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 8px; border-radius: 6px;">
+                    <input type="text" id="new-proj-name" placeholder="e.g. My Awesome App" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px;">
                 </div>
                 <div style="width: 120px;">
                     <label style="display:block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">Status</label>
-                    <select id="new-proj-status" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 8px; border-radius: 6px;">
+                    <select id="new-proj-status" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px;">
                         <option value="planned">Planned</option>
                         <option value="in_progress">In Progress</option>
                         <option value="paused">Paused</option>
                         <option value="done">Done</option>
                     </select>
                 </div>
-                <button onclick="addNewProject()" style="background: var(--accent-purple); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Add Project</button>
+                <button onclick="addNewProject()" style="background: var(--accent); color: var(--on-accent); border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Add Project</button>
             </div>
         </div>
     `;
@@ -91,9 +91,9 @@ function renderProjectsList(modalBody, projects) {
                 <div class="project-card"
                      data-id="${proj.id}"
                      onclick="renderProjectDetail(${proj.id})"
-                     style="background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 12px; cursor: pointer; transition: border-color 0.2s, background 0.2s;"
-                     onmouseenter="this.style.borderColor='rgba(255,255,255,0.12)'; this.style.background='rgba(255,255,255,0.035)';"
-                     onmouseleave="this.style.borderColor='var(--card-border)'; this.style.background='rgba(255,255,255,0.02)';">
+                     style="background: var(--tint-1); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 12px; cursor: pointer; transition: border-color 0.2s, background 0.2s;"
+                     onmouseenter="this.style.borderColor='var(--tint-3)'; this.style.background='var(--tint-2)';"
+                     onmouseleave="this.style.borderColor='var(--card-border)'; this.style.background='var(--tint-1)';">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                         <strong style="font-size: 1rem; line-height: 1.3;">${proj.name}</strong>
                         <button onclick="deleteProject(${proj.id}, event)" aria-label="Delete project" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; flex-shrink: 0; min-width: 32px; min-height: 32px; display:flex; align-items:center; justify-content:center; border-radius: 6px; transition: color 0.2s, background 0.2s;"
@@ -156,13 +156,13 @@ window.renderProjectDetail = async function(id) {
             </div>
         </div>
 
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px;">
+        <div style="background: var(--tint-1); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px;">
             <h3 style="margin-bottom: 16px; font-size: 1rem;">Project Log</h3>
 
             <div style="display: flex; gap: 8px; margin-bottom: 20px;">
                 <input type="text" id="detail-log-note-${proj.id}"
                        placeholder="What did you work on?"
-                       style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
+                       style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
                 <button onclick="addProjectLogFromDetail(${proj.id})"
                         style="background: var(--accent-teal); color: var(--bg-color); border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">
                     Add Log
@@ -214,7 +214,7 @@ async function _loadDetailLogs(id) {
                 listDiv.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 24px 0;">No logs yet — add your first entry above!</p>';
             } else {
                 listDiv.innerHTML = result.data.map(log => `
-                    <div style="background: rgba(255,255,255,0.015); border: 1px solid var(--card-border); border-left: 3px solid var(--accent-purple); padding: 12px 14px; border-radius: 8px;">
+                    <div style="background: var(--tint-1); border: 1px solid var(--card-border); border-left: 3px solid var(--accent); padding: 12px 14px; border-radius: 8px;">
                         <div style="color: var(--text-muted); font-size: 0.72rem; margin-bottom: 6px;">${new Date(log.date).toLocaleString()}</div>
                         <div style="font-size: 0.88rem; line-height: 1.5;">${log.note}</div>
                     </div>

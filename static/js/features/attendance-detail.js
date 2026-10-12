@@ -125,16 +125,16 @@ window.switchAttendanceTab = async function(tab, btn) {
         container.innerHTML = renderBySubjectView(window.attendanceData);
     } else if (tab === 'window') {
         container.innerHTML = `
-            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid var(--card-border); margin-bottom: 20px;">
+            <div style="background: var(--tint-1); padding: 20px; border-radius: 12px; border: 1px solid var(--card-border); margin-bottom: 20px;">
                 <h3 style="margin-bottom: 16px; font-size: 1rem;">Select Date Range</h3>
                 <div style="display: flex; gap: 16px; align-items: flex-end;">
                     <div style="flex: 1;">
                         <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">Start Date</label>
-                        <input type="date" id="win-start" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px;">
+                        <input type="date" id="win-start" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px;">
                     </div>
                     <div style="flex: 1;">
                         <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">End Date</label>
-                        <input type="date" id="win-end" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 10px; border-radius: 8px;">
+                        <input type="date" id="win-end" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px;">
                     </div>
                     <button onclick="calculateWindowAttendance()" style="background: var(--accent-teal); color: var(--bg-color); border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Calculate</button>
                 </div>

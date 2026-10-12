@@ -19,6 +19,8 @@
         umbrella: '<path d="M22 12a10.06 10.06 1 0 0-20 0Z"></path><path d="M12 12v8a2 2 0 0 0 4 0"></path><path d="M12 2v3"></path>',
         sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.288 1.287L3 12l5.8 1.9a2 2 0 0 1 1.287 1.288L12 21l1.9-5.8a2 2 0 0 1 1.288-1.287L21 12l-5.8-1.9a2 2 0 0 1-1.287-1.288Z"></path>',
         calendar: '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>',
+        sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path>',
+        moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>',
     };
 
     const DEFAULT_SIZE = 20;

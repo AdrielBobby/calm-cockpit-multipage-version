@@ -178,12 +178,12 @@ function renderWeeklyTimetable(data, hideControls = false) {
 
         // Override badge for the week view
         const overrideBadge = isOverride
-            ? `<span style="font-size: 0.65rem; background: rgba(167,139,250,0.18); color: var(--accent-purple); border: 1px solid rgba(167,139,250,0.35); padding: 2px 8px; border-radius: 20px; font-weight: 600; letter-spacing: 0.3px; margin-left: 8px; display:inline-flex; align-items:center; gap:3px;">${window.icon('calendar', { size: 11 })} Override</span>`
+            ? `<span style="font-size: 0.65rem; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); padding: 2px 8px; border-radius: 20px; font-weight: 600; letter-spacing: 0.3px; margin-left: 8px; display:inline-flex; align-items:center; gap:3px;">${window.icon('calendar', { size: 11 })} Override</span>`
             : '';
 
         html += `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; margin-bottom: 8px;">
-                <h3 style="color: ${isToday ? 'var(--accent-teal)' : 'var(--accent-purple)'}; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <h3 style="color: ${isToday ? 'var(--accent-teal)' : 'var(--accent)'}; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                     ${day} ${isToday ? '(Today)' : ''}
                     <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">${date || ''}</span>
                     ${overrideBadge}
@@ -209,7 +209,7 @@ function renderWeeklyTimetable(data, hideControls = false) {
                     : `No classes this Saturday — add subjects in Manage to make it a class day ${window.icon('calendar', { size: 14 })}`;
             const color = isHoliday ? 'var(--accent-red)' : 'var(--text-muted)';
             const border = isHoliday ? 'var(--accent-red)' : 'var(--card-border)';
-            html += `<div style="background: rgba(255,255,255,0.02); border: 1px dashed ${border}; padding: 16px; border-radius: 8px; text-align: center; color: ${color}; font-weight: 500; font-size: 0.9rem;">${msg}</div>`;
+            html += `<div style="background: var(--tint-1); border: 1px dashed ${border}; padding: 16px; border-radius: 8px; text-align: center; color: ${color}; font-weight: 500; font-size: 0.9rem;">${msg}</div>`;
             return;
         }
 
@@ -276,7 +276,7 @@ function renderTasksView(events, filterStatus = 'all') {
 
     let html = `
         <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
-            <button onclick="filterTasks('all')"         style="background: ${filterStatus === 'all'         ? 'var(--card-border)' : 'transparent'}; border: 1px solid var(--card-border); color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem;">All</button>
+            <button onclick="filterTasks('all')"         style="background: ${filterStatus === 'all'         ? 'var(--card-border)' : 'transparent'}; border: 1px solid var(--card-border); color: var(--text-main); padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem;">All</button>
             <button onclick="filterTasks('planned')"     style="background: ${filterStatus === 'planned'     ? 'rgba(148, 163, 184, 0.1)' : 'transparent'}; border: 1px solid var(--text-muted); color: var(--text-muted); padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem;">Planning</button>
             <button onclick="filterTasks('in_progress')" style="background: ${filterStatus === 'in_progress' ? 'rgba(245, 158, 11, 0.1)' : 'transparent'}; border: 1px solid var(--accent-yellow); color: var(--accent-yellow); padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem;">In Progress</button>
             <button onclick="filterTasks('done')"        style="background: ${filterStatus === 'done'        ? 'rgba(6, 214, 160, 0.1)' : 'transparent'}; border: 1px solid var(--accent-teal); color: var(--accent-teal); padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem;">Done</button>
@@ -296,17 +296,17 @@ function renderTasksView(events, filterStatus = 'all') {
 
         sortedDates.forEach(date => {
             const displayDate = window.formatDate(date, { weekday: 'short', month: 'short', day: 'numeric' });
-            html += `<h4 style="color: var(--accent-purple); margin-top: 12px; font-size: 0.9rem;">${displayDate}</h4>`;
+            html += `<h4 style="color: var(--accent); margin-top: 12px; font-size: 0.9rem;">${displayDate}</h4>`;
 
             grouped[date].forEach(e => {
                 html += `
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); padding: 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="background: var(--tint-1); border: 1px solid var(--card-border); padding: 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 16px;">
                             <div style="width: 4px; height: 32px; background: ${window.LABEL_COLORS[e.label] || 'var(--accent-teal)'}; border-radius: 2px;"></div>
                             <div>
                                 <div style="font-weight: 600; margin-bottom: 4px;">${e.title}</div>
                                 <div style="display: flex; gap: 8px; align-items: center;">
-                                    <span style="font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 4px;">${e.label || 'Personal'}</span>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); background: var(--tint-2); padding: 2px 8px; border-radius: 4px;">${e.label || 'Personal'}</span>
                                     <span style="font-size: 0.7rem; color: ${STATUS_COLORS[e.status] || 'white'}; font-weight: bold; text-transform: uppercase;">● ${e.status?.replace('_', ' ') || 'planned'}</span>
                                 </div>
                             </div>
@@ -453,7 +453,7 @@ window._ttNavTo = _ttNavTo;
 function renderManageView(data, subjects) {
     let html = `<div style="display: flex; flex-direction: column; gap: 16px;">
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">
-            Edit the timetable structure. Toggle <strong style="color:var(--accent-purple);">This week only</strong> to save changes just for this week without touching the permanent base schedule.
+            Edit the timetable structure. Toggle <strong style="color:var(--accent);">This week only</strong> to save changes just for this week without touching the permanent base schedule.
         </p>`;
 
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -468,7 +468,7 @@ function renderManageView(data, subjects) {
 
     subjects.forEach(s => {
         html += `
-            <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
+            <div style="display: flex; gap: 8px; align-items: center; background: var(--tint-1); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
                 <input type="text" value="${s.name}" onchange="updateTimetableSubjectName(${s.id}, this.value, null)"
                        placeholder="Long Name" style="flex: 2; background: transparent; border: 1px solid transparent; color: var(--text-main); font-size: 0.85rem; padding: 4px; border-radius: 4px; font-weight: 600;">
                 <input type="text" value="${s.short_name || ''}" onchange="updateTimetableSubjectName(${s.id}, null, this.value)"
@@ -495,7 +495,7 @@ function _buildManageDaySection(day, dayData, subjects) {
             <div class="manage-day-section" style="margin-bottom: 16px; opacity: 0.55;">
                 <div class="manage-day-header" style="display:flex; align-items:center; gap:8px; border-bottom: 1px solid var(--card-border); padding-bottom: 6px; margin-bottom: 10px;">
                     <h4 style="flex:1; margin:0;">${day}</h4>
-                    <span style="font-size:0.72rem; color:var(--text-muted); background:rgba(255,255,255,0.04); border:1px solid var(--card-border); padding:2px 8px; border-radius:12px;">Always a holiday</span>
+                    <span style="font-size:0.72rem; color:var(--text-muted); background:var(--tint-2); border:1px solid var(--card-border); padding:2px 8px; border-radius:12px;">Always a holiday</span>
                 </div>
                 <p style="font-size:0.82rem; color:var(--text-muted); padding: 10px 0;">Sunday is always a rest day. No override available.</p>
             </div>`;
@@ -550,11 +550,11 @@ function _buildManageDaySection(day, dayData, subjects) {
                 </div>
                 <div style="display:flex; gap:8px; margin-top:10px; align-items:center;">
                     <button onclick="addOverrideSlot('${day}')"
-                            style="background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); color: var(--accent-purple); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
+                            style="background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
                         + Add class slot
                     </button>
                     <button onclick="saveNewOverride('${overrideKey}', '${day}')"
-                            style="background: var(--accent-purple); border: none; color: white; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 700;">
+                            style="background: var(--accent); border: none; color: var(--on-accent); padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 700;">
                         Save Saturday schedule
                     </button>
                 </div>
@@ -588,12 +588,12 @@ function _buildManageDaySection(day, dayData, subjects) {
                 </div>
                 <div style="display:flex; gap:8px; margin-top:8px; align-items:center; flex-wrap:wrap;">
                     <button onclick="addOverrideSlot('${day}')"
-                            style="background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); color: var(--accent-purple); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
+                            style="background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
                         + Add slot
                     </button>
                     ${!isOverride ? `
                     <button onclick="saveNewOverride('${overrideKey}', '${day}')"
-                            style="background: var(--accent-purple); border: none; color: white; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 700;">
+                            style="background: var(--accent); border: none; color: var(--on-accent); padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 700;">
                         Save as "This week only"
                     </button>` : ''}
                 </div>
@@ -605,14 +605,14 @@ function _buildManageDaySection(day, dayData, subjects) {
 // ── Render a base-timetable slot row (onchange, existing approach) ─
 function _renderBaseSlotRow(c, subjects) {
     return `
-        <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
+        <div style="display: flex; gap: 8px; align-items: center; background: var(--tint-1); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
             <input type="text" value="${c.time}" onchange="updateTimetableEntry(${c.id}, this.value, null, null)"
                    placeholder="Start" style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;">
             <span style="color: var(--text-muted); font-size: 0.8rem;">to</span>
             <input type="text" value="${c.end_time || ''}" onchange="updateTimetableEntry(${c.id}, null, this.value, null)"
                    placeholder="End" style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;">
             <select onchange="updateTimetableEntry(${c.id}, null, null, this.value)"
-                    style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: white; padding: 4px; border-radius: 4px; font-size: 0.85rem;">
+                    style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 4px; border-radius: 4px; font-size: 0.85rem;">
                 <option value="" ${c.subject_id == null ? 'selected' : ''}>None</option>
                 ${window.subjectsData.map(s => `<option value="${s.id}" ${s.id === c.subject_id ? 'selected' : ''}>${s.name}</option>`).join('')}
             </select>
@@ -640,7 +640,7 @@ function _renderOverrideSlotRow(c, subjects, day, overrideKey, isNew, idx) {
 
     return `
         <div class="override-slot-row" data-start="${startVal}" data-end="${endVal}" data-subject="${subjectId}"
-             style="display: flex; gap: 8px; align-items: center; background: rgba(167,139,250,0.04); padding: 8px; border-radius: 8px; border: 1px solid rgba(167,139,250,0.2);">
+             style="display: flex; gap: 8px; align-items: center; background: color-mix(in srgb, var(--accent) 4%, transparent); padding: 8px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);">
             <input type="text" value="${startVal}" placeholder="Start" class="ov-start"
                    style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;"
                    ${onchangeAttr}>
@@ -648,7 +648,7 @@ function _renderOverrideSlotRow(c, subjects, day, overrideKey, isNew, idx) {
             <input type="text" value="${endVal}" placeholder="End" class="ov-end"
                    style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;"
                    ${onchangeAttr}>
-            <select class="ov-subject" style="flex: 1; background: var(--bg-color); border: 1px solid rgba(167,139,250,0.3); color: white; padding: 4px; border-radius: 4px; font-size: 0.85rem;"
+            <select class="ov-subject" style="flex: 1; background: var(--bg-color); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); color: var(--text-main); padding: 4px; border-radius: 4px; font-size: 0.85rem;"
                     ${onchangeAttr}>
                 <option value="" ${subjectId == null ? 'selected' : ''}>None</option>
                 ${(window.subjectsData || subjects).map(s => `<option value="${s.id}" ${s.id == subjectId ? 'selected' : ''}>${s.name}</option>`).join('')}
@@ -670,7 +670,7 @@ window.onOverrideToggleChange = function(day, overrideKey, isOn) {
 
     if (baseDiv)     baseDiv.style.display     = isOn ? 'none' : 'flex';
     if (overrideDiv) overrideDiv.style.display = isOn ? 'flex' : 'none';
-    if (trackEl)     trackEl.style.color       = isOn ? 'var(--accent-purple)' : '';
+    if (trackEl)     trackEl.style.color       = isOn ? 'var(--accent)' : '';
 };
 
 // ── Add a new empty override slot row ─────────────────────────────
