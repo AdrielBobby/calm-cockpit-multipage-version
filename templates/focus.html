@@ -23,7 +23,7 @@
         </section>
 
         <div class="focus-grid" id="focus-main" hidden>
-            <section class="tile focus-timer-card" aria-labelledby="focus-phase">
+            <section class="tile focus-timer-card" id="focus-timer-card" aria-labelledby="focus-phase">
                 <div class="focus-phase" id="focus-phase" data-phase="idle">Ready</div>
                 <div class="focus-clock" id="focus-clock" aria-live="off">25:00</div>
                 <div class="focus-current">
@@ -118,5 +118,5 @@
 {% block scripts %}
     <script src="{{ url_for('static', filename='js/features/focus-parser.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/features/focus-timer.js') }}?v=1"></script>
-    <script src="{{ url_for('static', filename='js/features/focus.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/features/focus.js') }}?v=3"></script>
 {% endblock %}

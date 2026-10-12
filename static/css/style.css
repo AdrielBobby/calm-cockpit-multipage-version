@@ -2373,6 +2373,24 @@ body {
 .focus-next { margin-top: 16px; font-size: 0.85rem; color: var(--text-muted); min-height: 1.2em; overflow-wrap: anywhere; }
 .focus-keys { margin-top: 8px; }
 
+/* Immersive mode: while a phase is running the timer fills the screen and the rest of the page is hidden. */
+body.focus-immersive { overflow: hidden; }
+.focus-timer-card.is-immersive {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    justify-content: center;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--bg-color);
+    padding: 24px;
+}
+.focus-timer-card.is-immersive .focus-clock { font-size: clamp(5rem, 22vw, 16rem); margin: 16px 0 24px; }
+.focus-timer-card.is-immersive .focus-phase { font-size: 1rem; }
+.focus-timer-card.is-immersive .focus-current-title { font-size: 1.4rem; }
+.focus-timer-card.is-immersive .focus-keys::after { content: " Esc exits full screen."; }
+
 /* Stats */
 .focus-stats { flex-wrap: wrap; }
 .focus-stats .gym-stat { min-width: 120px; }

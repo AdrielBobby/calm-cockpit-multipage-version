@@ -12,6 +12,7 @@
     const state = {
         plans: [], plan: null, sessions: [], timer: T.blank(),
         editingId: null, parsed: null, nameDirty: false, busy: false, lastFocus: null,
+        leftImmersive: false, // user stepped out of full screen for the current phase
     };
 
     let statusTimer = null;
@@ -172,6 +173,7 @@
 
     /* ── Timer actions ─────────────────────────────────────────── */
     async function commit(nextTimer) {
+        if (nextTimer.phase !== state.timer.phase) state.leftImmersive = false;
         state.timer = nextTimer;
         render();
         await saveTimer();
@@ -309,6 +311,13 @@
                 next = target ? 'After the break: ' + target.title : '';
             }
         }
+
+        // Full-screen toggle for running phases.
+        const running = T.isRunningPhase(t);
+        const immersive = running && !state.leftImmersive;
+        if (running) controls += button('toggle-immersive', immersive ? 'Exit full screen' : 'Full screen');
+        $('focus-timer-card').classList.toggle('is-immersive', immersive);
+        document.body.classList.toggle('focus-immersive', immersive);
 
         const phaseEl = $('focus-phase');
         phaseEl.textContent = phaseLabel + (t.is_paused ? ' · paused' : '');
@@ -600,6 +609,7 @@
                 complete: () => endPhase(true),
                 skip: () => skipSession(),
                 stop: stopFocus,
+                'toggle-immersive': () => { state.leftImmersive = !state.leftImmersive; renderTimer(); },
             };
             if (actions[btn.dataset.action]) actions[btn.dataset.action]();
         });
@@ -636,7 +646,12 @@
         });
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                MODALS.forEach((id) => { if ($(id).classList.contains('active')) closeModal(id); });
+                if (anyModalOpen()) {
+                    MODALS.forEach((id) => { if ($(id).classList.contains('active')) closeModal(id); });
+                } else if (T.isRunningPhase(state.timer) && !state.leftImmersive) {
+                    state.leftImmersive = true;
+                    renderTimer();
+                }
                 return;
             }
             // Space toggles pause, unless typing or a button/field has focus.
