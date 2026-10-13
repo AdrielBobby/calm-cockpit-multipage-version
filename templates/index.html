@@ -102,39 +102,14 @@
         </div>
 
         <!-- Row 2 -->
-        <div class="tile tile-4-col" id="tile-finance">
-            <div class="tile-header">
-                <h2>Finance Summary</h2>
-                <button class="btn-action" data-modal="modal-finance">...</button>
-            </div>
-            <div class="tile-content" id="finance-snapshot-container">
-                {% if finance %}
-                    <div style="margin-bottom: 16px;">
-                        <div style="font-size: 1.5rem; font-weight: 700;">₹{{ finance.balance }}</div>
-                        <div style="color: var(--text-muted); font-size: 0.8rem;">Net Balance</div>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <div style="flex: 1; background: rgba(6, 214, 160, 0.1); border: 1px solid rgba(6, 214, 160, 0.2); padding: 8px; border-radius: 8px;">
-                            <div style="font-size: 0.7rem; color: var(--accent-teal); text-transform: uppercase;">Income</div>
-                            <div style="font-weight: 600;">₹{{ finance.income }}</div>
-                        </div>
-                        <div style="flex: 1; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 8px; border-radius: 8px;">
-                            <div style="font-size: 0.7rem; color: var(--accent-red); text-transform: uppercase;">Expense</div>
-                            <div style="font-weight: 600;">₹{{ finance.expense }}</div>
-                        </div>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="tile tile-4-col" id="tile-goals">
+        <div class="tile tile-8-col" id="tile-goals">
             <div class="tile-header">
                 <h2>Weekly Goals</h2>
                 <button class="btn-action" data-modal="modal-goals">...</button>
             </div>
             <div class="tile-content" id="goals-snapshot-container">
                 {% if goals %}
-                    <ul style="list-style: none; padding: 0;">
+                    <ul class="goals-list">
                     {% for goal in goals %}
                         <li onclick="toggleGoalStatus({{ goal.id }}, {{ 'false' if goal.completed else 'true' }})" 
                             style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; cursor: pointer; {% if goal.completed %}color: var(--text-muted); text-decoration: line-through;{% endif %}">

@@ -61,6 +61,11 @@ Legend: [x] done, [ ] not started
 - [x] Tables: `focus_plans`, `focus_sessions` (pending / completed / skipped, completed_at), `focus_timer` (one row per plan). Routes under `/api/focus/*`.
 - Not done / ideas: AI import (PRD milestone 5: Claude API endpoint for messy planner replies, needs an API key on the server), daily/weekly focus stats (data supports it via `completed_at`), drag-to-reorder sessions, an Overview tile for the active plan, linking plans to Academics subjects.
 
+## 5. [ ] Finance view (idea)
+- A dedicated `/finance` view as a nav tab, replacing the old Overview Finance Summary tile (removed because it wasn't being used; the Overview row now gives that space to Weekly Goals).
+- Existing pieces to build on: finance modal (`static/js/features/finance-detail.js`), `/api/finance/*` routes (transactions, summary, clear), `finance_summary` in `app.py`.
+- Ideas: monthly income/expense breakdown, category spending chart (Chart.js is already used in Academics), budgets, balance over time.
+
 ## Dropped
 - Valorant tracking page: no public Riot API for player stats, so it was scrapped.
 

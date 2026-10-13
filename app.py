@@ -86,7 +86,7 @@ def index():
     # PRD says "Max 4-5 goal items displayed as checkboxes."
     # Filter by current week if possible, otherwise just latest goals
     goals_rows = db.execute(
-        'SELECT id, text, is_completed FROM weekly_goals ORDER BY id DESC LIMIT 5'
+        'SELECT id, text, is_completed FROM weekly_goals ORDER BY id DESC LIMIT 12'
     ).fetchall()
     weekly_goals = [{"id": r['id'], "text": r['text'], "completed": bool(r['is_completed'])} for r in goals_rows]
 

@@ -383,6 +383,17 @@ body {
 
 /* Specific Grid Columns */
 .tile-4-col { grid-column: span 4; }
+.tile-8-col { grid-column: span 8; }
+
+/* Weekly goals: flow into columns so more goals fit without clipping */
+.goals-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    columns: 2;
+    column-gap: 32px;
+}
+.goals-list li { break-inside: avoid; }
 .tile-12-col { grid-column: span 12; }
 
 /* ── Projects tile ────────────────────────────────────────────────── */
@@ -656,6 +667,7 @@ body {
 
     .top-bar    { grid-column: span 6; }
     .tile-4-col { grid-column: span 3; }
+    .tile-8-col { grid-column: span 6; }
     .tile-12-col{ grid-column: span 6; }
 
     body {
@@ -743,6 +755,8 @@ body {
     }
 
     /* Force all tiles to full width */
+    .goals-list { columns: 1; }
+
     .tile-4-col,
     .tile-12-col,
     [class*="tile-"] {

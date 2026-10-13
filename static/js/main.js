@@ -159,7 +159,7 @@ window.refreshTimetableSnapshot = async function() {
             if (slots.length === 0) {
                 container.innerHTML = `<p class="text-muted" style="color: var(--text-muted); font-size: 0.9rem;">No classes today! ${window.icon('sparkles', { size: 15 })}</p>`;
             } else {
-                let html = '<ul style="list-style: none; padding: 0;">';
+                let html = '<ul class="goals-list">';
                 slots.forEach(c => {
                     const uiStatus  = _periodStatus(c);
                     const badgeHTML = uiStatus === 'present' || uiStatus === 'absent'
@@ -244,7 +244,7 @@ window.refreshGoalsSnapshot = async function() {
         const response = await fetch('/api/goals/all');
         const result = await response.json();
         if (result.status === 'success') {
-            const goals = result.data.slice(0, 5); // Max 5
+            const goals = result.data.slice(0, 12); // Max 12
             let html = '<ul style="list-style: none; padding: 0;">';
             goals.forEach(goal => {
                 html += `
