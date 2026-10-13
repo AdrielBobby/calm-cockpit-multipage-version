@@ -2019,6 +2019,10 @@ body {
 }
 .scrap-stage.is-panning { cursor: grabbing; }
 .scrap-canvas-stage {
+    background-color: #ece4d6;
+    background-image: radial-gradient(rgba(120, 80, 20, 0.16) 1px, transparent 1.4px);
+}
+:root[data-theme="dark"] .scrap-canvas-stage {
     background-color: #17140f;
     background-image: radial-gradient(rgba(245, 158, 11, 0.09) 1px, transparent 1.4px);
 }
@@ -2041,7 +2045,7 @@ body {
     flex-wrap: wrap;
     gap: 6px;
     padding: 6px;
-    background: rgba(22, 22, 22, 0.92);
+    background: color-mix(in srgb, var(--card-bg) 92%, transparent);
     border: 1px solid var(--tint-3);
     border-radius: 12px;
     box-shadow: var(--shadow-md);
@@ -2090,7 +2094,7 @@ body {
     color: var(--text-muted);
     padding: 4px 10px;
     border-radius: 999px;
-    background: rgba(10, 10, 10, 0.7);
+    background: color-mix(in srgb, var(--card-bg) 75%, transparent);
     pointer-events: none;
 }
 
@@ -2107,20 +2111,20 @@ body {
     align-items: center;
     gap: 2px;
     text-align: center;
-    background: #1c1c1c;
+    background: var(--card-bg);
     border: 1px solid color-mix(in srgb, var(--cat) 45%, transparent);
     border-radius: 14px;
     box-shadow: inset 0 3px 0 var(--cat), var(--shadow-sm);
     cursor: pointer;
     transition: border-color var(--transition), background var(--transition);
 }
-.scrap-node:hover { border-color: var(--cat); background: #222; }
+.scrap-node:hover { border-color: var(--cat); background: color-mix(in srgb, var(--card-bg) 94%, var(--text-main)); }
 .scrap-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .scrap-node.is-dragging { cursor: grabbing; z-index: 2; box-shadow: inset 0 3px 0 var(--cat), var(--shadow-md); }
 .scrap-node.is-root {
     min-width: 170px;
     padding: 16px 24px 12px;
-    background: color-mix(in srgb, var(--accent) 14%, #1c1c1c);
+    background: color-mix(in srgb, var(--accent) 14%, var(--card-bg));
 }
 .scrap-node.is-root .scrap-node-title { font-size: 1.1rem; }
 .scrap-node-cat { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--cat); }
@@ -2159,7 +2163,7 @@ body {
     height: 26px;
     border-radius: 50%;
     border: 1px solid var(--tint-3);
-    background: #262626;
+    background: var(--card-bg);
     color: var(--text-main);
     font: inherit;
     font-weight: 700;
@@ -2233,7 +2237,7 @@ body {
 .scrap-pin .scrap-item-controls { top: -18px; right: -20px; }
 .scrap-item:hover .scrap-item-controls, .scrap-item.is-selected .scrap-item-controls { opacity: 1; }
 .scrap-item-btn[data-delete-item]:hover { background: var(--accent-red); border-color: var(--accent-red); }
-.scrap-item-btn:hover { background: #333; }
+.scrap-item-btn:hover { background: var(--tint-3); }
 .scrap-colour-dot {
     width: 12px;
     height: 12px;
