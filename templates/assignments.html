@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <main class="asg-page">
+        <header class="acad-header">
+            <h1 class="acad-title">Assignments</h1>
+            <div class="asg-header-actions">
+                <label class="acad-field">
+                    <span>Show</span>
+                    <select class="acad-input" id="asg-filter">
+                        <option value="all">All</option>
+                        <option value="not_started">Not started</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="submitted">Submitted</option>
+                    </select>
+                </label>
+                <button type="button" class="acad-btn acad-btn-primary" id="asg-add-btn">+ Add assignment</button>
+            </div>
+        </header>
+
+        <p class="acad-status" id="asg-status" role="status" aria-live="polite"></p>
+
+        <div class="asg-board" id="asg-board">
+            <section class="tile asg-col" data-col="not_started">
+                <div class="tile-header"><h2>Not started <span class="asg-count" data-count="not_started"></span></h2></div>
+                <ul class="asg-list" data-list="not_started"></ul>
+            </section>
+            <section class="tile asg-col" data-col="in_progress">
+                <div class="tile-header"><h2>In progress <span class="asg-count" data-count="in_progress"></span></h2></div>
+                <ul class="asg-list" data-list="in_progress"></ul>
+            </section>
+            <section class="tile asg-col" data-col="submitted">
+                <div class="tile-header"><h2>Submitted <span class="asg-count" data-count="submitted"></span></h2></div>
+                <ul class="asg-list" data-list="submitted"></ul>
+            </section>
+        </div>
+    </main>
+
+    <!-- Add / edit modal -->
+    <div class="modal-overlay" id="asg-modal" role="dialog" aria-modal="true" aria-labelledby="asg-modal-title">
+        <div class="modal-content gym-modal compact-modal">
+            <div class="modal-header">
+                <h2 id="asg-modal-title">Add assignment</h2>
+                <button type="button" class="btn-close" id="asg-modal-close" aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+            </div>
+            <form class="modal-body" id="asg-form" novalidate>
+                <label class="acad-field">
+                    <span>Title</span>
+                    <input class="acad-input" type="text" id="asg-title" maxlength="200" placeholder="e.g. DBMS Assignment 2" required>
+                </label>
+                <div class="asg-form-grid">
+                    <label class="acad-field">
+                        <span>Subject</span>
+                        <select class="acad-input" id="asg-subject"></select>
+                    </label>
+                    <label class="acad-field">
+                        <span>Due date</span>
+                        <input class="acad-input" type="date" id="asg-due" required>
+                    </label>
+                </div>
+                <label class="acad-field">
+                    <span>Status</span>
+                    <select class="acad-input" id="asg-status-input">
+                        <option value="not_started">Not started</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="submitted">Submitted</option>
+                    </select>
+                </label>
+                <label class="acad-field">
+                    <span>Notes (optional)</span>
+                    <textarea class="acad-input" id="asg-notes" rows="3" maxlength="2000"></textarea>
+                </label>
+                <p class="gym-modal-error" id="asg-modal-error" role="alert"></p>
+                <div class="gym-modal-actions">
+                    <button type="button" class="acad-btn gym-btn-danger" id="asg-delete" hidden>Delete</button>
+                    <span class="gym-spacer"></span>
+                    <button type="button" class="acad-btn acad-btn-ghost" id="asg-cancel">Cancel</button>
+                    <button type="submit" class="acad-btn acad-btn-primary" id="asg-save">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/features/assignments.js') }}?v=1"></script>
+{% endblock %}

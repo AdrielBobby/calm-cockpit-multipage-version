@@ -124,15 +124,18 @@ def index():
         'Project': '#ffb74d',
         'Gym': '#03dac6',
         'Study': '#50fb07',
-        'Clg': '#81d4fa'
+        'Clg': '#81d4fa',
+        'Assignment': '#6366f1'
     }
-    
+
     events_by_day = {}
     for r in event_rows:
         day = int(r['date'].split('-')[2])
         if day not in events_by_day:
             events_by_day[day] = []
         events_by_day[day].append(label_colors.get(r['label'], 'var(--accent-teal)'))
+    for r in db.execute("SELECT due_date FROM assignments WHERE due_date LIKE ?", (month_str + '%',)):
+        events_by_day.setdefault(int(r['due_date'].split('-')[2]), []).append(label_colors['Assignment'])
     
     calendar_data = {
         "today": today,
@@ -155,6 +158,10 @@ def index():
                            goals=weekly_goals,
                            projects=projects_in_progress,
                            calendar=calendar_data)
+
+@app.route('/assignments')
+def assignments():
+    return render_template('assignments.html', active_view='assignments')
 
 @app.route('/academics')
 def academics():
@@ -1036,6 +1043,89 @@ def get_projects_tile_data():
         return jsonify({"status": "success", "data": data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# --- Assignments ---
+ASSIGNMENT_STATUSES = ('not_started', 'in_progress', 'submitted')
+
+def _assignment_fields(data, partial):
+    """Validates an assignment payload; returns (fields, error). With partial=True
+    only the keys present in data are checked and returned."""
+    fields = {}
+    if not partial or 'title' in data:
+        title = ' '.join(str(data.get('title') or '').split())[:200]
+        if not title:
+            return None, "title is required"
+        fields['title'] = title
+    if not partial or 'due_date' in data:
+        try:
+            fields['due_date'] = datetime.strptime(str(data.get('due_date') or ''), '%Y-%m-%d').strftime('%Y-%m-%d')
+        except ValueError:
+            return None, "due date must be YYYY-MM-DD"
+    if not partial or 'status' in data:
+        status = data.get('status') or 'not_started'
+        if status not in ASSIGNMENT_STATUSES:
+            return None, "status must be not_started, in_progress or submitted"
+        fields['status'] = status
+    if not partial or 'subject_id' in data:
+        sid = data.get('subject_id')
+        if sid in (None, ''):
+            fields['subject_id'] = None
+        else:
+            try:
+                fields['subject_id'] = int(sid)
+            except (TypeError, ValueError):
+                return None, "invalid subject"
+            if not get_db().execute('SELECT 1 FROM subjects WHERE id = ?', (fields['subject_id'],)).fetchone():
+                return None, "subject not found"
+    if not partial or 'notes' in data:
+        fields['notes'] = str(data.get('notes') or '').strip()[:2000]
+    return fields, None
+
+@app.route('/api/assignments', methods=['GET'])
+def list_assignments():
+    db = get_db()
+    rows = db.execute('''
+        SELECT a.id, a.title, a.subject_id, s.name AS subject_name, s.short_name AS subject_short,
+               a.due_date, a.status, a.notes
+        FROM assignments a LEFT JOIN subjects s ON a.subject_id = s.id
+        ORDER BY a.due_date ASC, a.id ASC
+    ''').fetchall()
+    return jsonify({"status": "success", "data": [dict(r) for r in rows]})
+
+@app.route('/api/assignments', methods=['POST'])
+def create_assignment():
+    fields, err = _assignment_fields(request.json or {}, partial=False)
+    if err:
+        return jsonify({"status": "error", "message": err}), 400
+    db = get_db()
+    cur = db.execute('''
+        INSERT INTO assignments (title, subject_id, due_date, status, notes, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (fields['title'], fields['subject_id'], fields['due_date'], fields['status'], fields['notes'],
+          datetime.now().isoformat(timespec='seconds')))
+    db.commit()
+    return jsonify({"status": "success", "id": cur.lastrowid})
+
+@app.route('/api/assignments/<int:assignment_id>', methods=['PATCH'])
+def update_assignment(assignment_id):
+    db = get_db()
+    if not db.execute('SELECT 1 FROM assignments WHERE id = ?', (assignment_id,)).fetchone():
+        return jsonify({"status": "error", "message": "assignment not found"}), 404
+    fields, err = _assignment_fields(request.json or {}, partial=True)
+    if err:
+        return jsonify({"status": "error", "message": err}), 400
+    if fields:
+        db.execute(f'UPDATE assignments SET {", ".join(k + " = ?" for k in fields)} WHERE id = ?',
+                   (*fields.values(), assignment_id))
+        db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/assignments/<int:assignment_id>', methods=['DELETE'])
+def delete_assignment(assignment_id):
+    db = get_db()
+    db.execute('DELETE FROM assignments WHERE id = ?', (assignment_id,))
+    db.commit()
+    return jsonify({"status": "success"})
 
 @app.route('/api/calendar/event/<int:id>/update', methods=['POST'])
 def update_calendar_event(id):
@@ -2464,6 +2554,21 @@ def init_db_schema():
                 focus_count_since_long INTEGER NOT NULL DEFAULT 0
             )
         ''')
+
+        # Assignments (due dates also appear on the overview calendar)
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS assignments (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                title      TEXT NOT NULL,
+                subject_id INTEGER,
+                due_date   TEXT NOT NULL,
+                status     TEXT NOT NULL DEFAULT 'not_started'
+                           CHECK(status IN ('not_started', 'in_progress', 'submitted')),
+                notes      TEXT NOT NULL DEFAULT '',
+                created_at TEXT
+            )
+        ''')
+        db.execute('CREATE INDEX IF NOT EXISTS ix_assignments_due ON assignments (due_date)')
         db.commit()
 
 init_db_schema()

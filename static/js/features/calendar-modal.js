@@ -1,9 +1,8 @@
 window.loadCalendarModal = async function(modalBody) {
     modalBody.innerHTML = '<p style="color: var(--text-muted);">Fetching calendar...</p>';
     try {
-        const response = await fetch('/api/calendar/events');
-        const result = await response.json();
-        
+        const result = { data: await window.fetchCalendarItems() };
+
         const now = new Date();
         if (window.targetCalendarDate) {
             const [y, m, d] = window.targetCalendarDate.split('-').map(Number);
@@ -124,8 +123,34 @@ window.selectDay = function(dateStr, events) {
         agendaEvents.innerHTML = '<p class="cal-no-events">Nothing planned.</p>';
     } else {
         const STATUS_BADGE = { planned: 'var(--text-muted)', in_progress: 'var(--accent-yellow)', done: 'var(--accent-teal)' };
+        const ASSIGNMENT_STATUS = {
+            not_started: ['Not started', 'var(--text-muted)'],
+            in_progress: ['In progress', 'var(--accent-yellow)'],
+            submitted: ['Submitted', 'var(--accent-teal)'],
+        };
+        const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-        agendaEvents.innerHTML = dayEvents.map(e => `
+        // Assignments are read-only here; they're managed on the Assignments page.
+        const renderAssignment = (e) => {
+            const [statusLabel, statusColor] = ASSIGNMENT_STATUS[e.status] || ASSIGNMENT_STATUS.not_started;
+            const color = window.LABEL_COLORS.Assignment;
+            return `
+            <div class="cal-event-item">
+                <span class="cal-event-dot" style="background:${color}"></span>
+                <div class="cal-event-info">
+                    <div style="display:flex; justify-content:space-between; align-items: center;">
+                        <strong>${esc(e.title)}</strong>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span style="font-size: 0.7rem; color: ${statusColor}; text-transform: uppercase; font-weight: bold;">${statusLabel}</span>
+                            <a href="/assignments" style="font-size: 0.75rem; color: var(--accent); text-decoration: none;">Open</a>
+                        </div>
+                    </div>
+                    <span class="cal-label-badge" style="background:${color}22;color:${color}">Assignment due</span>
+                </div>
+            </div>`;
+        };
+
+        agendaEvents.innerHTML = dayEvents.map(e => e.kind === 'assignment' ? renderAssignment(e) : `
             <div class="cal-event-item" id="event-item-${e.id}">
                 <span class="cal-event-dot" style="background:${window.LABEL_COLORS[e.label] || '#888'}"></span>
                 <div class="cal-event-info">

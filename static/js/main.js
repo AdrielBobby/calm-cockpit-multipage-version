@@ -65,6 +65,25 @@ window.LABEL_COLORS = {
     Gym: '#03dac6',
     Study: '#50fb07',
     Clg: '#81d4fa',
+    Assignment: '#6366f1',
+};
+
+/* Calendar events plus assignment due dates, merged for the calendar grids.
+   Assignments carry kind: 'assignment' so the agenda renders them read-only
+   (they're edited on the Assignments page, not through the events API). */
+window.fetchCalendarItems = async function() {
+    const [evRes, asRes] = await Promise.all([
+        fetch('/api/calendar/events').then(r => r.json()),
+        fetch('/api/assignments').then(r => r.json()).catch(() => ({ data: [] })),
+    ]);
+    const assignments = (asRes.data || []).map(a => {
+        const subject = a.subject_short || a.subject_name;
+        return {
+            kind: 'assignment', id: a.id, date: a.due_date, label: 'Assignment', status: a.status,
+            title: subject ? `${subject}: ${a.title}` : a.title,
+        };
+    });
+    return (evRes.data || []).concat(assignments);
 };
 
 /* ── Server-rendered icon hydration ──────────────────────────────────
@@ -304,10 +323,8 @@ window.navOverviewMonth = async function(dir) {
     if (label) label.textContent = `${monthNames[window.dashCurrentMonth]} ${window.dashCurrentYear}`;
 
     try {
-        const response = await fetch('/api/calendar/events');
-        const result = await response.json();
-        const events = result.data || [];
-        
+        const events = await window.fetchCalendarItems();
+
         const grid = document.getElementById('dash-cal-grid');
         if (grid) {
             grid.innerHTML = `
