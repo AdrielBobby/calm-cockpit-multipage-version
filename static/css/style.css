@@ -2587,3 +2587,10 @@ body.focus-immersive { overflow: hidden; }
     .asg-header-actions .acad-field { flex: 1; }
     .asg-form-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ═══ Migrate to next sem ═══ */
+.sem-warning { color: var(--accent-red); font-size: 0.85rem; margin: 0 0 12px; }
+.sem-rows-head, .sem-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 32px; gap: 8px; align-items: center; }
+.sem-rows-head { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; }
+.sem-row { margin-bottom: 8px; }
+#sem-modal { z-index: 1100; }

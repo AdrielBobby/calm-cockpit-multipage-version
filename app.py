@@ -35,6 +35,7 @@ def index():
     date_str_today = now.strftime("%Y-%m-%d")
     week_key_today = get_iso_week_key(now, day_name)
     is_holiday_today = is_date_holiday(db, date_str_today)
+    attendance_closed = is_attendance_closed(db)
     classes_today, _, _ = resolve_day_schedule(db, day_name, date_str_today, week_key_today)
     # Compact tile: filter None slots (no class held) — matches JS tile behaviour
     today_timetable = [
@@ -151,6 +152,7 @@ def index():
                            date=now.strftime("%B %d, %Y"),
                            day=day_name,
                            is_holiday_today=is_holiday_today,
+                           is_attendance_closed=attendance_closed,
                            timetable=today_timetable,
                            attendance=attendance_snapshot,
                            grades=grades_data,
@@ -284,6 +286,11 @@ def is_date_holiday(db, date_str):
     """Return True if date_str (YYYY-MM-DD) is recorded in the holidays table."""
     return db.execute('SELECT 1 FROM holidays WHERE date = ?', (date_str,)).fetchone() is not None
 
+def is_attendance_closed(db):
+    """Return True once the semester's attendance has been closed (app_settings flag)."""
+    row = db.execute("SELECT value FROM app_settings WHERE key = 'attendance_closed'").fetchone()
+    return row is not None and row['value'] == '1'
+
 def cleanup_old_overrides(db):
     """Delete weekly_override rows whose week is more than 4 ISO weeks in the past."""
     cutoff = datetime.now() - timedelta(weeks=4)
@@ -407,6 +414,9 @@ def get_today_timetable():
 
     # Holiday check must come before resolve_day_schedule so a holiday day
     # always returns an empty class list regardless of overrides.
+    if is_attendance_closed(db):
+        return jsonify({"status": "success", "is_holiday": False, "is_closed": True, "date": date_str, "data": []})
+
     if is_date_holiday(db, date_str):
         return jsonify({"status": "success", "is_holiday": True, "date": date_str, "data": []})
 
@@ -430,6 +440,7 @@ def get_timetable():
 
     # Auto-clean overrides older than 4 weeks
     cleanup_old_overrides(db)
+    closed = is_attendance_closed(db)
 
     # Calculate dates for the current week (Monday to Sunday)
     now = datetime.now()
@@ -467,9 +478,12 @@ def get_timetable():
         is_holiday = is_date_holiday(db, date_str)
 
         classes, is_override, is_weekend = resolve_day_schedule(db, day, date_str, week_key)
+        if closed:
+            classes = []
 
         data[day] = {
             "date": date_str,
+            "is_closed": closed,
             "is_holiday": is_holiday,
             "is_override": is_override,
             "is_weekend": is_weekend,
@@ -574,6 +588,8 @@ def mark_override_attendance():
         return jsonify({"status": "error", "message": "Cannot mark attendance for a None slot"}), 400
 
     db = get_db()
+    if is_attendance_closed(db):
+        return jsonify({"status": "error", "message": "Attendance is closed"}), 400
     try:
         db.execute(
             'INSERT INTO override_attendance (week_key, subject_id, start_time, date, status) '
@@ -614,6 +630,8 @@ def mark_attendance():
         return jsonify({"status": "error", "message": "Missing fields"}), 400
 
     db = get_db()
+    if is_attendance_closed(db):
+        return jsonify({"status": "error", "message": "Attendance is closed"}), 400
 
     # Reject attendance writes for None slots (timetable rows with no subject)
     slot = db.execute('SELECT subject_id FROM timetable WHERE id = ?', (timetable_id,)).fetchone()
@@ -653,6 +671,70 @@ def remove_holiday():
     db.execute('DELETE FROM holidays WHERE date = ?', (date,))
     db.commit()
     return jsonify({"status": "success"})
+
+# ── Semester close / migrate ──────────────────────────────────────
+
+def _set_attendance_closed(db, closed):
+    db.execute(
+        "INSERT INTO app_settings (key, value) VALUES ('attendance_closed', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ('1' if closed else '0',)
+    )
+
+@app.route('/api/attendance/status', methods=['GET'])
+def attendance_status():
+    return jsonify({"status": "success", "closed": is_attendance_closed(get_db())})
+
+@app.route('/api/attendance/close', methods=['POST'])
+def close_attendance():
+    db = get_db()
+    _set_attendance_closed(db, True)
+    db.commit()
+    return jsonify({"status": "success"})
+
+@app.route('/api/attendance/reopen', methods=['POST'])
+def reopen_attendance():
+    db = get_db()
+    _set_attendance_closed(db, False)
+    db.commit()
+    return jsonify({"status": "success"})
+
+def _migrate_subjects(data):
+    """Validate the next-sem subject list. Returns (subjects, error)."""
+    rows = (data or {}).get('subjects')
+    if not isinstance(rows, list) or not rows:
+        return None, "Add at least one subject"
+    clean, seen = [], set()
+    for r in rows:
+        name = str((r or {}).get('name') or '').strip()
+        short = str((r or {}).get('short_name') or '').strip()
+        if not name:
+            return None, "Every subject needs a name"
+        if name.lower() in seen:
+            return None, f"Duplicate subject: {name}"
+        seen.add(name.lower())
+        clean.append((name, short or None))
+    return clean, None
+
+@app.route('/api/semester/migrate', methods=['POST'])
+def migrate_semester():
+    """Wipe the finished semester's attendance/timetable/subjects and seed the next sem's subjects."""
+    subjects, error = _migrate_subjects(request.json)
+    if error:
+        return jsonify({"status": "error", "message": error}), 400
+    db = get_db()
+    try:
+        for table in ('attendance', 'override_attendance', 'weekly_overrides', 'holidays', 'timetable'):
+            db.execute(f'DELETE FROM {table}')
+        db.execute('UPDATE assignments SET subject_id = NULL')
+        db.execute('DELETE FROM subjects')
+        db.executemany('INSERT INTO subjects (name, short_name) VALUES (?, ?)', subjects)
+        _set_attendance_closed(db, False)
+        db.commit()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        db.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/attendance/window', methods=['GET'])
 def get_attendance_window():
@@ -2569,6 +2651,14 @@ def init_db_schema():
             )
         ''')
         db.execute('CREATE INDEX IF NOT EXISTS ix_assignments_due ON assignments (due_date)')
+
+        # Simple key/value flags (e.g. attendance_closed)
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        ''')
         db.commit()
 
 init_db_schema()

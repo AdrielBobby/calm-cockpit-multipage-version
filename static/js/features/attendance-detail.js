@@ -3,7 +3,9 @@ window.loadAttendanceModal = async function(modalBody) {
     try {
         const response = await fetch('/api/attendance/details');
         const result = await response.json();
-        
+        let closed = false;
+        try { closed = (await (await fetch('/api/attendance/status')).json()).closed; } catch (e) { /* default open */ }
+
         let html = '<div style="display: flex; gap: 16px; flex-direction: column;">';
         
         // Tabs & Clear All
@@ -15,7 +17,10 @@ window.loadAttendanceModal = async function(modalBody) {
                     <button class="att-tab" onclick="switchAttendanceTab('calendar', this)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding: 8px 16px;">Calendar View</button>
                     <button class="att-tab" onclick="switchAttendanceTab('skippable', this)" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding: 8px 16px;">Skippable</button>
                 </div>
-                <button onclick="clearData('attendance')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">Clear All History</button>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="toggleAttendanceClosed(${closed})" style="background: var(--tint-1); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">${closed ? 'Reopen attendance' : 'Close attendance'}</button>
+                    <button onclick="clearData('attendance')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">Clear All History</button>
+                </div>
             </div>
             
             <div id="att-tab-content">
@@ -29,6 +34,23 @@ window.loadAttendanceModal = async function(modalBody) {
         
     } catch (error) {
         modalBody.innerHTML = `<p style="color: var(--accent-red);">Error loading attendance.</p>`;
+    }
+};
+
+window.toggleAttendanceClosed = async function(isClosed) {
+    const msg = isClosed
+        ? 'Reopen attendance? Classes will show in the timetable again.'
+        : 'Close attendance for this semester? The timetable will show "Attendance closed" and marking will stop. Your totals are kept.';
+    if (!confirm(msg)) return;
+    try {
+        const resp = await fetch(isClosed ? '/api/attendance/reopen' : '/api/attendance/close', { method: 'POST' });
+        if (!resp.ok) throw new Error();
+        window.loadAttendanceModal(document.getElementById('modal-body'));
+        if (window.refreshTimetableSnapshot) window.refreshTimetableSnapshot();
+        if (window.refreshAttendanceSnapshot) window.refreshAttendanceSnapshot();
+        if (window.invalidateHeatmapCache) window.invalidateHeatmapCache();
+    } catch (e) {
+        alert('Could not update attendance state');
     }
 };
 

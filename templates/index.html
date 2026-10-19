@@ -22,7 +22,12 @@
                 <button class="btn-action" data-modal="modal-timetable">...</button>
             </div>
             <div class="tile-content" id="tt-tile-content">
-                {% if is_holiday_today %}
+                {% if is_attendance_closed %}
+                    <div class="tt-holiday-state">
+                        <span class="tt-holiday-icon" data-icon="lock" data-icon-size="26"></span>
+                        <p>Attendance closed</p>
+                    </div>
+                {% elif is_holiday_today %}
                     <div class="tt-holiday-state">
                         <span class="tt-holiday-icon" data-icon="umbrella" data-icon-size="26"></span>
                         <p>Closed for holiday</p>
@@ -195,6 +200,28 @@
         </div>
     </div>
 
+    <!-- Migrate to next semester -->
+    <div class="modal-overlay" id="sem-modal" role="dialog" aria-modal="true" aria-labelledby="sem-modal-title">
+        <div class="modal-content gym-modal compact-modal">
+            <div class="modal-header">
+                <h2 id="sem-modal-title">Migrate to next sem</h2>
+                <button type="button" class="btn-close" id="sem-modal-close" aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+            </div>
+            <form class="modal-body" id="sem-form" novalidate>
+                <p class="sem-warning">This deletes this semester's attendance, holidays, timetable and subjects. It can't be undone.</p>
+                <div class="sem-rows-head"><span>Subject name</span><span>Short name</span></div>
+                <div id="sem-rows"></div>
+                <button type="button" class="acad-btn acad-btn-ghost" id="sem-add-row">+ Add subject</button>
+                <p class="gym-modal-error" id="sem-modal-error" role="alert"></p>
+                <div class="gym-modal-actions">
+                    <span class="gym-spacer"></span>
+                    <button type="button" class="acad-btn acad-btn-ghost" id="sem-cancel">Cancel</button>
+                    <button type="submit" class="acad-btn gym-btn-danger" id="sem-save">Clear &amp; migrate</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Mobile-only floating refresh button -->
     <button id="mobile-refresh-btn"
             class="mobile-refresh-btn"
@@ -205,9 +232,10 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=12x"></script>
-    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=12x"></script>
+    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=13x"></script>
+    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=13x"></script>
     <script src="{{ url_for('static', filename='js/features/attendance-heatmap.js') }}?v=12x"></script>
+    <script src="{{ url_for('static', filename='js/features/semester-migrate.js') }}?v=1"></script>
     <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=12x"></script>
     <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=12x"></script>
     <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=12x"></script>

@@ -164,6 +164,14 @@ window.refreshTimetableSnapshot = async function() {
         const response = await fetch('/api/timetable/today');
         const result = await response.json();
         if (result.status === 'success') {
+            if (result.is_closed) {
+                container.innerHTML = `
+                    <div class="tt-holiday-state">
+                        <span class="tt-holiday-icon">${window.icon('lock', { size: 26 })}</span>
+                        <p>Attendance closed</p>
+                    </div>`;
+                return;
+            }
             // Holiday takes priority — show closed state, no period rows
             if (result.is_holiday) {
                 container.innerHTML = `

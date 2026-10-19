@@ -159,6 +159,13 @@ function renderWeeklyTimetable(data, hideControls = false) {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     const todayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
 
+    if (days.some(d => data[d] && data[d].is_closed)) {
+        return `<div class="tt-holiday-state" style="padding: 32px 0;">
+            <span class="tt-holiday-icon">${window.icon('lock', { size: 26 })}</span>
+            <p>Attendance closed</p>
+        </div>`;
+    }
+
     days.forEach(day => {
         const dayData = data[day];
         if (!dayData) return;
@@ -476,7 +483,12 @@ function renderManageView(data, subjects) {
             </div>
         `;
     });
-    html += `</div></div></div>`;
+    html += `</div></div>
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0; flex: 1; min-width: 200px;">Semester over? Enter next sem's subjects and start with a clean timetable.</p>
+            <button onclick="openSemesterMigrate()" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">Migrate to next sem</button>
+        </div>
+    </div>`;
     return html;
 }
 
