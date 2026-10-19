@@ -71,19 +71,27 @@
 
     function chime() {
         if (!audioCtx) return;
-        const t0 = audioCtx.currentTime;
-        [0, 0.28, 0.56].forEach((offset, i) => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = i === 2 ? 1046.5 : 784;
-            gain.gain.setValueAtTime(0.0001, t0 + offset);
-            gain.gain.exponentialRampToValueAtTime(0.25, t0 + offset + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + offset + 0.25);
-            osc.connect(gain).connect(audioCtx.destination);
-            osc.start(t0 + offset);
-            osc.stop(t0 + offset + 0.26);
-        });
+        // iPhone-style alarm: a rapid run of bright bell pings, repeated with a short pause.
+        const t0 = audioCtx.currentTime + 0.05;
+        const PINGS = 4, ROUNDS = 4, STEP = 0.16, ROUND_LEN = 1.2;
+        for (let r = 0; r < ROUNDS; r++) {
+            for (let p = 0; p < PINGS; p++) {
+                const t = t0 + r * ROUND_LEN + p * STEP;
+                // Fundamental plus a bell-like overtone so it cuts through.
+                [[1318.5, 0.35], [2637, 0.18]].forEach(([freq, vol]) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.0001, t);
+                    gain.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+                    osc.connect(gain).connect(audioCtx.destination);
+                    osc.start(t);
+                    osc.stop(t + 0.31);
+                });
+            }
+        }
     }
 
     function notify(title, body) {
