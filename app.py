@@ -1815,7 +1815,8 @@ def _migrate_semester_marks(db):
 
 SCRAP_IMAGE_TYPES = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 SCRAP_ITEM_TYPES = ('note', 'image', 'pin')
-SCRAP_NOTE_COLOURS = ('yellow', 'pink', 'blue', 'green')
+SCRAP_NOTE_COLOURS = ('yellow', 'pink', 'blue', 'green', 'orange', 'red', 'purple',
+                      'teal', 'lavender', 'peach', 'mint', 'grey')
 SCRAP_PRESET_CATEGORIES = [
     ('Ideas', '#f59e0b'), ('Research', '#60a5fa'), ('Design', '#14b8a6'),
     ('Tasks', '#06d6a0'), ('Resources', '#f472b6'), ('Inspiration', '#fb923c'),

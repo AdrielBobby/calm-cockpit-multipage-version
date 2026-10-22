@@ -2,7 +2,10 @@
    dragged around, joined with sagging strings. Exposes window.ScrapCanvas. */
 (function () {
     const { $, api, setStatus, createViewport, startDrag } = window.Scrap;
-    const NOTE_COLOURS = ['yellow', 'pink', 'blue', 'green'];
+    const NOTE_COLOURS = [
+        'yellow', 'orange', 'peach', 'red', 'pink', 'purple',
+        'lavender', 'blue', 'teal', 'green', 'mint', 'grey',
+    ];
     const STRING_COLOURS = [
         { value: '#ef4444', label: 'Red' }, { value: '#f8fafc', label: 'White' },
         { value: '#06d6a0', label: 'Teal' }, { value: '#f59e0b', label: 'Amber' }, { value: '#60a5fa', label: 'Blue' },
@@ -263,10 +266,31 @@
         }
     }
 
-    function cycleColour(item) {
-        item.colour = NOTE_COLOURS[(NOTE_COLOURS.indexOf(item.colour) + 1) % NOTE_COLOURS.length];
-        itemNode(item.id).dataset.colour = item.colour;
-        saveItem(item, { colour: item.colour });
+    function closeColourPop() {
+        document.querySelectorAll('.scrap-colour-pop').forEach((p) => p.remove());
+    }
+
+    /* Popover of every note colour, opened from the colour button. */
+    function toggleColourPop(item, btn) {
+        const open = btn.parentNode.querySelector('.scrap-colour-pop');
+        closeColourPop();
+        if (open) return;
+        const pop = document.createElement('div');
+        pop.className = 'scrap-colour-pop';
+        pop.setAttribute('role', 'radiogroup');
+        pop.setAttribute('aria-label', 'Note colour');
+        pop.innerHTML = NOTE_COLOURS.map((c) =>
+            `<button type="button" class="scrap-colour-opt${c === item.colour ? ' is-active' : ''}" role="radio"
+                aria-checked="${c === item.colour}" aria-label="${c}" title="${c}" data-pick-colour="${c}"
+                style="--note:var(--note-${c})"></button>`).join('');
+        btn.parentNode.appendChild(pop);
+    }
+
+    function setColour(item, colour) {
+        item.colour = colour;
+        itemNode(item.id).dataset.colour = colour;
+        saveItem(item, { colour });
+        closeColourPop();
     }
 
     /* Note text: read-only until double-clicked so a press always drags. */
@@ -350,7 +374,7 @@
         const item = itemById(Number(el.dataset.item));
         if (!item) return;
         if (state.editingId === item.id && e.target.closest('.scrap-note-text')) return;
-        if (e.target.closest('.scrap-item-btn')) return;
+        if (e.target.closest('.scrap-item-btn, .scrap-colour-pop')) return;
         if (state.stringMode) {
             e.preventDefault();
             e.stopPropagation();
@@ -475,6 +499,10 @@
 
         const items = itemsEl();
         items.addEventListener('pointerdown', onItemsPointerDown);
+        document.addEventListener('pointerdown', (e) => {
+            if (!e.target.closest('.scrap-colour-pop, [data-colour-item]')) closeColourPop();
+        });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeColourPop(); });
         items.addEventListener('dblclick', (e) => {
             const el = e.target.closest('.scrap-note');
             if (el && !state.stringMode) startEditing(Number(el.dataset.item));
@@ -484,7 +512,8 @@
             if (!el) return;
             const item = itemById(Number(el.dataset.item));
             if (e.target.closest('[data-delete-item]')) deleteItem(item.id);
-            else if (e.target.closest('[data-colour-item]')) cycleColour(item);
+            else if (e.target.closest('[data-colour-item]')) toggleColourPop(item, e.target.closest('[data-colour-item]'));
+            else if (e.target.closest('[data-pick-colour]')) setColour(item, e.target.closest('[data-pick-colour]').dataset.pickColour);
         });
         items.addEventListener('focusout', (e) => {
             if (e.target.classList.contains('scrap-note-text')) commitEditing();
