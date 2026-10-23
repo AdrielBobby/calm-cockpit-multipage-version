@@ -163,6 +163,12 @@
 
     function markCell(name, component, entry) {
         const e = entry || {};
+        if (component === 'end_sem') {
+            return `<td><div class="acad-mark-cell">
+            <input class="acad-input acad-input-sm acad-grade" type="text" maxlength="3" value="${esc(e.grade ?? '')}" placeholder="Grade"
+                   data-subject="${esc(name)}" data-component="${component}" aria-label="${esc(name)} end-sem grade">
+        </div></td>`;
+        }
         const mark = e.mark ?? '';
         const max = e.max ?? '';
         return `<td><div class="acad-mark-cell">
@@ -198,6 +204,16 @@
         const cell = inputEl.closest('.acad-mark-cell');
         clearTimeout(markTimers[key]);
         markTimers[key] = setTimeout(async () => {
+            const gradeEl = cell.querySelector('.acad-grade');
+            if (gradeEl) {
+                try {
+                    await api('/api/academics/marks', 'PUT', {
+                        semester_id: state.marksSemId, subject_name: subject, component, grade: gradeEl.value
+                    });
+                    setStatus('Saved.');
+                } catch (e) { setStatus(e.message, true); }
+                return;
+            }
             const markEl = cell.querySelector('.acad-mark');
             const maxEl = cell.querySelector('.acad-max');
             try {
@@ -349,7 +365,7 @@
 
         const marksBody = $('acad-marks-body');
         marksBody.addEventListener('input', (e) => {
-            if (e.target.matches('.acad-mark, .acad-max')) queueMarkSave(e.target);
+            if (e.target.matches('.acad-mark, .acad-max, .acad-grade')) queueMarkSave(e.target);
         });
         marksBody.addEventListener('change', async (e) => {
             if (!e.target.matches('.acad-name')) return;

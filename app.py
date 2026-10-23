@@ -1347,13 +1347,13 @@ def academics_get_marks():
         return jsonify({"status": "error", "message": "semester_id is required"}), 400
     db = get_db()
     rows = db.execute('''
-        SELECT subject_name, component, mark, max_mark FROM semester_marks
+        SELECT subject_name, component, mark, max_mark, grade FROM semester_marks
         WHERE semester_id = ? ORDER BY id ASC
     ''', (semester_id,)).fetchall()
     subjects = {}
     for r in rows:
         entry = subjects.setdefault(r['subject_name'], {"name": r['subject_name']})
-        entry[r['component']] = {"mark": r['mark'], "max": r['max_mark']}
+        entry[r['component']] = {"mark": r['mark'], "max": r['max_mark'], "grade": r['grade']}
     return jsonify({"status": "success", "data": list(subjects.values())})
 
 @app.route('/api/academics/marks', methods=['PUT'])
@@ -1363,6 +1363,17 @@ def academics_put_mark():
     name = (data.get('subject_name') or '').strip()
     if component not in MARK_COMPONENTS or not name or data.get('semester_id') is None:
         return jsonify({"status": "error", "message": "semester_id, subject_name and a valid component are required"}), 400
+    if component == 'end_sem':
+        grade = (data.get('grade') or '').strip().upper()[:3] or None
+        db = get_db()
+        db.execute('''
+            INSERT INTO semester_marks (semester_id, subject_name, component, mark, max_mark, grade)
+            VALUES (?, ?, ?, NULL, ?, ?)
+            ON CONFLICT(semester_id, subject_name, component)
+            DO UPDATE SET grade = excluded.grade
+        ''', (data['semester_id'], name, component, DEFAULT_MAX_MARK[component], grade))
+        db.commit()
+        return jsonify({"status": "success"})
     try:
         mark = None if data.get('mark') in (None, '') else float(data['mark'])
         max_mark = float(data['max_mark']) if data.get('max_mark') not in (None, '') else DEFAULT_MAX_MARK[component]
@@ -1791,6 +1802,9 @@ def _migrate_semester_marks(db):
             UNIQUE (semester_id, subject_name, component)
         )
     ''')
+    if 'grade' not in [c['name'] for c in db.execute('PRAGMA table_info(semester_marks)')]:
+        db.execute('ALTER TABLE semester_marks ADD COLUMN grade TEXT')
+        db.commit()
     if existed:
         return
     # Legacy data: prefer internal_number = 1, fall back to 2 (first row wins via OR IGNORE).
