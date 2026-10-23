@@ -58,6 +58,7 @@ function renderCompactCalendarUI(container, events) {
                 <!-- Add Event Compact Form -->
                 <div style="background: var(--tint-1); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px;">
                     <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <input type="text" id="ev-id" autocomplete="off" aria-label="Event ID" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 0.85rem; font-family: monospace;">
                         <input type="text" id="ev-title" placeholder="Event Title" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 0.85rem;">
                         <div style="display: flex; gap: 10px;">
                             <input type="date" id="ev-date" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 0.85rem;">
@@ -81,6 +82,7 @@ function renderCompactCalendarUI(container, events) {
         </div>
     `;
     container.innerHTML = html;
+    window.prefillNextId('events', 'ev-id');
 }
 
 function generateCompactGrid(year, month, events) {
@@ -159,7 +161,7 @@ window.selectDay = function(dateStr, events) {
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <span style="font-size: 0.7rem; color: ${STATUS_BADGE[e.status] || 'white'}; text-transform: uppercase; font-weight: bold;">${e.status?.replace('_', ' ') || 'planned'}</span>
                             <button onclick='startEditEvent(${JSON.stringify(e).replace(/"/g, '&quot;')}, "${dateStr}")' style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">✎</button>
-                            <button onclick="deleteCalEvent(${e.id}, '${dateStr}')" aria-label="Delete event" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem;">${window.icon('x', { size: 14 })}</button>
+                            <button onclick="deleteCalEvent('${e.id}', '${dateStr}')" aria-label="Delete event" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem;">${window.icon('x', { size: 14 })}</button>
                         </div>
                     </div>
                     <span class="cal-label-badge" style="background:${window.LABEL_COLORS[e.label] || '#888'}22;color:${window.LABEL_COLORS[e.label] || '#888'}">${e.label || 'Personal'}</span>
@@ -194,8 +196,8 @@ window.startEditEvent = function(event, dateStr) {
                 </select>
             </div>
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button onclick="cancelEditEvent(${event.id}, '${dateStr}')" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Cancel</button>
-                <button onclick="saveEditEvent(${event.id}, '${dateStr}')" style="background: var(--accent); border: none; color: var(--on-accent); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Save</button>
+                <button onclick="cancelEditEvent('${event.id}', '${dateStr}')" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Cancel</button>
+                <button onclick="saveEditEvent('${event.id}', '${dateStr}')" style="background: var(--accent); border: none; color: var(--on-accent); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Save</button>
             </div>
         </div>
     `;
@@ -233,16 +235,19 @@ window.addCalEvent = async function() {
     const date = document.getElementById('ev-date').value;
     const label = document.getElementById('ev-label').value;
     const status = document.getElementById('ev-status').value;
+    const id = document.getElementById('ev-id').value.trim();
     if (!title || !date) return alert("Fill title and date");
     try {
         const response = await fetch('/api/calendar/event', { 
             method: 'POST', 
             headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({ title, date, label, status }) 
+            body: JSON.stringify({ id: id || undefined, title, date, label, status }) 
         });
         if (response.ok) {
             window.targetCalendarDate = date;
             window.loadCalendarModal(document.getElementById('modal-body'));
+        } else {
+            alert(await window.apiError(response, 'Could not add event'));
         }
     } catch (e) { alert("Error adding event"); }
 };

@@ -62,6 +62,10 @@ function renderProjectsList(modalBody, projects) {
                     <label style="display:block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">Project Name</label>
                     <input type="text" id="new-proj-name" placeholder="e.g. My Awesome App" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px;">
                 </div>
+                <div style="width: 140px;">
+                    <label style="display:block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">ID</label>
+                    <input type="text" id="new-proj-id" autocomplete="off" style="${window.ID_INPUT_STYLE}">
+                </div>
                 <div style="width: 120px;">
                     <label style="display:block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px;">Status</label>
                     <select id="new-proj-status" style="width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px;">
@@ -90,13 +94,13 @@ function renderProjectsList(modalBody, projects) {
             html += `
                 <div class="project-card"
                      data-id="${proj.id}"
-                     onclick="renderProjectDetail(${proj.id})"
+                     onclick="renderProjectDetail('${proj.id}')"
                      style="background: var(--tint-1); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 12px; cursor: pointer; transition: border-color 0.2s, background 0.2s;"
                      onmouseenter="this.style.borderColor='var(--tint-3)'; this.style.background='var(--tint-2)';"
                      onmouseleave="this.style.borderColor='var(--card-border)'; this.style.background='var(--tint-1)';">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                         <strong style="font-size: 1rem; line-height: 1.3;">${proj.name}</strong>
-                        <button onclick="deleteProject(${proj.id}, event)" aria-label="Delete project" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; flex-shrink: 0; min-width: 32px; min-height: 32px; display:flex; align-items:center; justify-content:center; border-radius: 6px; transition: color 0.2s, background 0.2s;"
+                        <button onclick="deleteProject('${proj.id}', event)" aria-label="Delete project" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; flex-shrink: 0; min-width: 32px; min-height: 32px; display:flex; align-items:center; justify-content:center; border-radius: 6px; transition: color 0.2s, background 0.2s;"
                                 onmouseenter="this.style.color='var(--accent-red)'; this.style.background='rgba(239,68,68,0.1)';"
                                 onmouseleave="this.style.color='var(--text-muted)'; this.style.background='transparent';">${window.icon('x', { size: 16 })}</button>
                     </div>
@@ -115,6 +119,7 @@ function renderProjectsList(modalBody, projects) {
 
     html += '</div></div>';
     modalBody.innerHTML = html;
+    window.prefillNextId('projects', 'new-proj-id');
 }
 
 // ── Detail view renderer ──────────────────────────────────────────
@@ -146,7 +151,7 @@ window.renderProjectDetail = async function(id) {
 
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <label style="font-size: 0.75rem; color: var(--text-muted);">Change status:</label>
-                <select onchange="updateProjectStatus(${proj.id}, this.value)"
+                <select onchange="updateProjectStatus('${proj.id}', this.value)"
                         style="background: var(--bg-color); border: 1px solid var(--card-border); color: ${color}; font-weight: 600; font-size: 0.8rem; padding: 6px 10px; border-radius: 6px; cursor: pointer;">
                     <option value="planned"     ${proj.status === 'planned'     ? 'selected' : ''}>Planned</option>
                     <option value="in_progress" ${proj.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
@@ -163,7 +168,7 @@ window.renderProjectDetail = async function(id) {
                 <input type="text" id="detail-log-note-${proj.id}"
                        placeholder="What did you work on?"
                        style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
-                <button onclick="addProjectLogFromDetail(${proj.id})"
+                <button onclick="addProjectLogFromDetail('${proj.id}')"
                         style="background: var(--accent-teal); color: var(--bg-color); border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">
                     Add Log
                 </button>
@@ -250,16 +255,19 @@ window.addProjectLogFromDetail = async function(id) {
 window.addNewProject = async function() {
     const name   = document.getElementById('new-proj-name').value;
     const status = document.getElementById('new-proj-status').value;
+    const id     = document.getElementById('new-proj-id').value.trim();
     if (!name) return;
     try {
         const response = await fetch('/api/projects/add', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name: name, status: status })
+            body: JSON.stringify({ id: id || undefined, name: name, status: status })
         });
         if (response.ok) {
             window.loadProjectsModal(document.getElementById('modal-body'));
             if (window.refreshProjectsSnapshot) window.refreshProjectsSnapshot();
+        } else {
+            alert(await window.apiError(response, 'Could not add project'));
         }
     } catch (e) { alert("Error adding project"); }
 };

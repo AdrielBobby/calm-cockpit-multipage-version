@@ -13,6 +13,7 @@
         row.innerHTML = `
             <input class="acad-input" type="text" data-field="name" maxlength="80" placeholder="e.g. Computer Networks" value="${esc(name || '')}">
             <input class="acad-input" type="text" data-field="short_name" maxlength="12" placeholder="CN" value="${esc(shortName || '')}">
+            <input class="acad-input" type="text" data-field="id" maxlength="40" aria-label="Subject ID" autocomplete="off" value="subj_${$('sem-rows').children.length + 1}">
             <button type="button" class="btn-close" data-remove aria-label="Remove subject"><span>&times;</span></button>`;
         $('sem-rows').appendChild(row);
         return row;
@@ -40,6 +41,7 @@
             .map((r) => ({
                 name: r.querySelector('[data-field="name"]').value.trim(),
                 short_name: r.querySelector('[data-field="short_name"]').value.trim(),
+                id: r.querySelector('[data-field="id"]').value.trim(),
             }))
             .filter((s) => s.name || s.short_name);
 

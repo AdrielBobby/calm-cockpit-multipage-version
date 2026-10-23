@@ -92,6 +92,10 @@
             </div>
             <div class="modal-body">
                 <label class="acad-field">
+                    <span>ID</span>
+                    <input class="acad-input" type="text" id="gym-preset-id" pattern="gpre_[a-z0-9_]{1,35}" title="gpre_ followed by lowercase letters, digits or _" autocomplete="off">
+                </label>
+                <label class="acad-field">
                     <span>Name</span>
                     <input class="acad-input" type="text" id="gym-preset-name" maxlength="40" placeholder="e.g. Chest + Triceps">
                 </label>
@@ -122,5 +126,5 @@
 
 {% block scripts %}
     <script src="{{ url_for('static', filename='js/features/gym-heatmap.js') }}?v=1"></script>
-    <script src="{{ url_for('static', filename='js/features/gym.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/features/gym.js') }}?v=3"></script>
 {% endblock %}

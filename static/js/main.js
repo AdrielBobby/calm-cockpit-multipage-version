@@ -21,6 +21,24 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 60000);
 
+/* ── Readable ids ────────────────────────────────────────────────────
+   Create forms carry an ID input (proj_6, sem_1, ...). prefillNextId fills it with the
+   server's suggestion; leaving it blank lets the server number the row. apiError pulls the
+   server's message (e.g. "id 'proj_x' is already taken") out of a failed response.
+   ──────────────────────────────────────────────────────────────────── */
+window.prefillNextId = async function(table, inputId) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    try {
+        const json = await (await fetch('/api/next-id/' + table)).json();
+        if (json.id && !el.value) el.value = json.id;
+    } catch (e) { /* the server numbers the row if the field stays empty */ }
+};
+window.apiError = async function(response, fallback) {
+    try { return (await response.json()).message || fallback; } catch (e) { return fallback; }
+};
+window.ID_INPUT_STYLE = 'width: 100%; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px; border-radius: 6px; font-family: monospace;';
+
 /* ── Shared swipe helper ─────────────────────────────────────────────
    Register once per target element. onSwipeLeft/onSwipeRight are
    callbacks fired when the user swipes ≥50px horizontally with
@@ -275,7 +293,7 @@ window.refreshGoalsSnapshot = async function() {
             let html = '<ul style="list-style: none; padding: 0;">';
             goals.forEach(goal => {
                 html += `
-                    <li onclick="toggleGoalStatus(${goal.id}, ${!goal.completed})" 
+                    <li onclick="toggleGoalStatus('${goal.id}', ${!goal.completed})" 
                         style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; cursor: pointer; ${goal.completed ? 'color: var(--text-muted); text-decoration: line-through;' : ''}">
                         <div style="width: 18px; height: 18px; border: 2px solid ${goal.completed ? 'var(--accent-teal)' : 'var(--card-border)'}; border-radius: 4px; background: ${goal.completed ? 'var(--accent-teal)' : 'transparent'}; display: flex; align-items: center; justify-content: center;">
                             ${goal.completed ? window.icon('check', { size: 12, strokeWidth: 4 }) : ''}

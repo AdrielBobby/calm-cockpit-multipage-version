@@ -157,9 +157,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const preview = _projLogPreview(proj);
             html += `
                 <div class="proj-tile-card proj-tile-card--inprogress"
-                     onclick="window.openProjectFromTile && window.openProjectFromTile(${proj.id})"
+                     onclick="window.openProjectFromTile && window.openProjectFromTile('${proj.id}')"
                      role="button" tabindex="0"
-                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile(${proj.id})"
+                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile('${proj.id}')"
                      onmouseenter="this.style.borderColor='rgba(6,214,160,0.4)'; this.style.background='rgba(6,214,160,0.06)';"
                      onmouseleave="this.style.borderColor='rgba(6,214,160,0.18)'; this.style.background='var(--tint-1)';">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -205,9 +205,9 @@ document.addEventListener('DOMContentLoaded', () => {
         shown.forEach(proj => {
             html += `
                 <div class="proj-tile-card proj-tile-card--paused"
-                     onclick="window.openProjectFromTile && window.openProjectFromTile(${proj.id})"
+                     onclick="window.openProjectFromTile && window.openProjectFromTile('${proj.id}')"
                      role="button" tabindex="0"
-                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile(${proj.id})"
+                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile('${proj.id}')"
                      onmouseenter="this.style.borderColor='rgba(245,158,11,0.4)'; this.style.background='rgba(245,158,11,0.06)';"
                      onmouseleave="this.style.borderColor='rgba(245,158,11,0.18)'; this.style.background='var(--tint-1)';">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">

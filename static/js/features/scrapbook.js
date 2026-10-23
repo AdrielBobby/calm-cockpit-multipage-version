@@ -33,7 +33,7 @@
         try { localStorage.setItem(LAST_BOARD_KEY, String(id)); } catch (e) { /* storage unavailable */ }
     }
     function readLastBoard() {
-        try { return Number(localStorage.getItem(LAST_BOARD_KEY)) || null; } catch (e) { return null; }
+        try { return localStorage.getItem(LAST_BOARD_KEY) || null; } catch (e) { return null; }
     }
 
     /* ── Loading ───────────────────────────────────────────────── */
@@ -139,7 +139,7 @@
     function onNodePointerDown(e) {
         const el = e.target.closest('.scrap-node');
         if (!el || e.target.closest('.scrap-node-act')) return;
-        const node = nodeById(Number(el.dataset.node));
+        const node = nodeById(el.dataset.node);
         const start = { x: node.x, y: node.y };
         startDrag(e, el, graphView, {
             onStart: () => el.classList.add('is-dragging'),
@@ -265,7 +265,7 @@
             const node = state.editingNode;
             // While projects are still loading, leave the link as it was.
             const link = projectSelect.disabled ? {}
-                : { project_id: projectSelect.value ? Number(projectSelect.value) : null };
+                : { project_id: projectSelect.value || null };
             if (node && node.parent_id == null) {
                 // The main node's title is the board name (up to 60 characters), saved on the board.
                 if ('project_id' in link) await api(`/api/scrapbook/nodes/${node.id}`, 'PATCH', link);
@@ -278,7 +278,7 @@
             if (node) {
                 await api(`/api/scrapbook/nodes/${node.id}`, 'PATCH', { title, category, ...link });
             } else {
-                const parent = nodeById(Number($('scrap-node-parent').value));
+                const parent = nodeById($('scrap-node-parent').value);
                 const pos = placeNear(parent);
                 await api(`/api/scrapbook/boards/${state.board.id}/nodes`, 'POST',
                     { title, category, parent_id: parent.id, x: pos.x, y: pos.y, ...link });
@@ -382,7 +382,7 @@
     }
 
     function renameCategory(input) {
-        const cat = state.categories.find((c) => c.id === Number(input.closest('[data-cat]').dataset.cat));
+        const cat = state.categories.find((c) => c.id === input.closest('[data-cat]').dataset.cat);
         const name = input.value.trim();
         if (!cat || name === cat.name) return;
         if (!name) { input.value = cat.name; return; }
@@ -448,7 +448,7 @@
             const row = e.target.closest('[data-cat]');
             if (!row || !e.target.closest('button')) return;
             $('scrap-cat-error').textContent = '';
-            const id = Number(row.dataset.cat);
+            const id = row.dataset.cat;
             if (e.target.closest('[data-cat-delete]')) deleteCategory(id);
             if (e.target.closest('[data-cat-confirm]')) deleteCategory(id, row.querySelector('[data-cat-move]').value);
             if (e.target.closest('[data-cat-cancel]')) {
@@ -463,6 +463,9 @@
         state.editingBoard = board || null;
         $('scrap-board-title').textContent = board ? 'Board settings' : 'New board';
         $('scrap-board-name').value = board ? board.name : '';
+        $('scrap-board-id').value = board ? board.id : '';
+        $('scrap-board-id').readOnly = !!board;
+        if (!board) window.prefillNextId('boards', 'scrap-board-id');
         $('scrap-board-delete').hidden = !board;
         $('scrap-board-error').textContent = '';
         openModal('scrap-board-modal');
@@ -480,7 +483,7 @@
                 id = state.editingBoard.id;
                 await api(`/api/scrapbook/boards/${id}`, 'PATCH', body);
             } else {
-                id = (await api('/api/scrapbook/boards', 'POST', body)).id;
+                id = (await api('/api/scrapbook/boards', 'POST', { ...body, id: $('scrap-board-id').value.trim() || undefined })).id;
             }
             closeModal('scrap-board-modal');
             await loadBoards(id);
@@ -512,7 +515,7 @@
         $('scrap-empty-new').addEventListener('click', () => openBoardModal(null));
         $('scrap-board-settings').addEventListener('click', () => openBoardModal(state.board));
         $('scrap-board-select').addEventListener('change', (e) => {
-            selectBoard(Number(e.target.value)).catch((ex) => setStatus(ex.message, true));
+            selectBoard(e.target.value).catch((ex) => setStatus(ex.message, true));
         });
         $('scrap-board-form').addEventListener('submit', saveBoard);
         $('scrap-board-delete').addEventListener('click', deleteBoard);
@@ -532,14 +535,14 @@
         nodesEl.addEventListener('click', (e) => {
             const add = e.target.closest('[data-add-child]');
             const edit = e.target.closest('[data-edit-node]');
-            if (add) openNodeModal(null, Number(add.dataset.addChild));
-            if (edit) openNodeModal(nodeById(Number(edit.dataset.editNode)));
+            if (add) openNodeModal(null, add.dataset.addChild);
+            if (edit) openNodeModal(nodeById(edit.dataset.editNode));
         });
         nodesEl.addEventListener('keydown', (e) => {
             const el = e.target.classList.contains('scrap-node') ? e.target : null;
             if (el && (e.key === 'Enter' || e.key === ' ')) {
                 e.preventDefault();
-                openCanvas(nodeById(Number(el.dataset.node)));
+                openCanvas(nodeById(el.dataset.node));
             }
         });
 

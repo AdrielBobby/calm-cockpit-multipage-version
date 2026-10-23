@@ -110,6 +110,9 @@
         state.editingId = item ? item.id : null;
         state.lastFocus = document.activeElement;
         $('asg-modal-title').textContent = item ? 'Edit assignment' : 'Add assignment';
+        $('asg-id').value = item ? item.id : '';
+        $('asg-id').readOnly = !!item;
+        if (!item) window.prefillNextId('assignments', 'asg-id');
         $('asg-title').value = item ? item.title : '';
         $('asg-subject').value = item && item.subject_id != null ? String(item.subject_id) : '';
         $('asg-due').value = item ? item.due_date : '';
@@ -139,7 +142,7 @@
         $('asg-save').disabled = true;
         try {
             if (state.editingId) await api('/api/assignments/' + state.editingId, 'PATCH', payload);
-            else await api('/api/assignments', 'POST', payload);
+            else await api('/api/assignments', 'POST', { ...payload, id: $('asg-id').value.trim() || undefined });
             closeModal();
             await load();
             setStatus('Saved.');
@@ -179,9 +182,9 @@
         const board = $('asg-board');
         board.addEventListener('click', (e) => {
             const edit = e.target.closest('[data-edit]');
-            if (edit) { openModal(state.items.find((a) => a.id === Number(edit.dataset.edit))); return; }
+            if (edit) { openModal(state.items.find((a) => a.id === edit.dataset.edit)); return; }
             const del = e.target.closest('[data-delete]');
-            if (del) deleteAssignment(Number(del.dataset.delete));
+            if (del) deleteAssignment(del.dataset.delete);
         });
         board.addEventListener('change', async (e) => {
             const sel = e.target.closest('[data-status-for]');

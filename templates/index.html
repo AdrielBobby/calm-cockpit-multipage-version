@@ -116,7 +116,7 @@
                 {% if goals %}
                     <ul class="goals-list">
                     {% for goal in goals %}
-                        <li onclick="toggleGoalStatus({{ goal.id }}, {{ 'false' if goal.completed else 'true' }})" 
+                        <li onclick="toggleGoalStatus('{{ goal.id }}', {{ 'false' if goal.completed else 'true' }})" 
                             style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; cursor: pointer; {% if goal.completed %}color: var(--text-muted); text-decoration: line-through;{% endif %}">
                             <div style="width: 18px; height: 18px; border: 2px solid {% if goal.completed %}var(--accent-teal){% else %}var(--card-border){% endif %}; border-radius: 4px; background: {% if goal.completed %}var(--accent-teal){% else %}transparent{% endif %}; display: flex; align-items: center; justify-content: center;">
                                 {% if goal.completed %}
@@ -209,7 +209,7 @@
             </div>
             <form class="modal-body" id="sem-form" novalidate>
                 <p class="sem-warning">This deletes this semester's attendance, holidays, timetable and subjects. It can't be undone.</p>
-                <div class="sem-rows-head"><span>Subject name</span><span>Short name</span></div>
+                <div class="sem-rows-head"><span>Subject name</span><span>Short name</span><span>ID</span></div>
                 <div id="sem-rows"></div>
                 <button type="button" class="acad-btn acad-btn-ghost" id="sem-add-row">+ Add subject</button>
                 <p class="gym-modal-error" id="sem-modal-error" role="alert"></p>
@@ -232,14 +232,14 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=13x"></script>
-    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=13x"></script>
-    <script src="{{ url_for('static', filename='js/features/attendance-heatmap.js') }}?v=12x"></script>
-    <script src="{{ url_for('static', filename='js/features/semester-migrate.js') }}?v=1"></script>
-    <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=12x"></script>
-    <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=12x"></script>
-    <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=12x"></script>
-    <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=12x"></script>
-    <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=14x"></script>
-    <script src="{{ url_for('static', filename='js/modals.js') }}?v=14"></script>
+    <script src="{{ url_for('static', filename='js/features/full-timetable.js') }}?v=13y"></script>
+    <script src="{{ url_for('static', filename='js/features/attendance-detail.js') }}?v=13y"></script>
+    <script src="{{ url_for('static', filename='js/features/attendance-heatmap.js') }}?v=12y"></script>
+    <script src="{{ url_for('static', filename='js/features/semester-migrate.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/features/finance-detail.js') }}?v=12y"></script>
+    <script src="{{ url_for('static', filename='js/features/goals-modal.js') }}?v=12y"></script>
+    <script src="{{ url_for('static', filename='js/features/projects-modal.js') }}?v=12y"></script>
+    <script src="{{ url_for('static', filename='js/features/calendar-modal.js') }}?v=12y"></script>
+    <script src="{{ url_for('static', filename='js/features/tile-nav.js') }}?v=14y"></script>
+    <script src="{{ url_for('static', filename='js/modals.js') }}?v=15"></script>
 {% endblock %}

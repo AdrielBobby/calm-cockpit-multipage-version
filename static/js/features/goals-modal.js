@@ -10,6 +10,7 @@ window.loadGoalsModal = async function(modalBody) {
         html += `
             <div style="background: var(--tint-1); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 16px;">
                 <div style="display: flex; gap: 12px;">
+                    <input type="text" id="new-goal-id" autocomplete="off" aria-label="Goal ID" style="width: 120px; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-family: monospace;">
                     <input type="text" id="new-goal-text" placeholder="Add a new goal..." style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px;">
                     <button onclick="addNewGoal()" style="background: var(--accent); color: var(--on-accent); border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Add</button>
                 </div>
@@ -22,18 +23,19 @@ window.loadGoalsModal = async function(modalBody) {
         result.data.forEach(goal => {
             html += `
                 <div style="display: flex; align-items: center; justify-content: space-between; background: var(--tint-1); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--card-border);">
-                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="toggleGoalStatus(${goal.id}, ${!goal.completed})">
+                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="toggleGoalStatus('${goal.id}', ${!goal.completed})">
                         <div style="width: 20px; height: 20px; border: 2px solid ${goal.completed ? 'var(--accent-teal)' : 'var(--card-border)'}; border-radius: 4px; background: ${goal.completed ? 'var(--accent-teal)' : 'transparent'}; display: flex; align-items: center; justify-content: center;">
                             ${goal.completed ? window.icon('check', { size: 14, strokeWidth: 4 }) : ''}
                         </div>
                         <span style="${goal.completed ? 'color: var(--text-muted); text-decoration: line-through;' : 'font-weight: 500;'}">${goal.text}</span>
                     </div>
-                    <button onclick="deleteGoal(${goal.id})" aria-label="Delete goal" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">${window.icon('x', { size: 16 })}</button>
+                    <button onclick="deleteGoal('${goal.id}')" aria-label="Delete goal" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">${window.icon('x', { size: 16 })}</button>
                 </div>
             `;
         });
         html += '</div></div>';
         modalBody.innerHTML = html;
+        window.prefillNextId('weekly_goals', 'new-goal-id');
 
         // Wire up Enter key on the input — press Enter to add a goal
         const inputEl = document.getElementById('new-goal-text');
@@ -53,13 +55,15 @@ window.loadGoalsModal = async function(modalBody) {
 
 window.addNewGoal = async function() {
     const text = document.getElementById('new-goal-text').value;
+    const id = document.getElementById('new-goal-id').value.trim();
     if (!text) return;
     try {
         const response = await fetch('/api/goals', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ text: text })
+            body: JSON.stringify({ id: id || undefined, text: text })
         });
+        if (!response.ok) { alert(await window.apiError(response, 'Could not add goal')); return; }
         if (response.ok) {
             await window.loadGoalsModal(document.getElementById('modal-body'));
             if (window.refreshGoalsSnapshot) window.refreshGoalsSnapshot();

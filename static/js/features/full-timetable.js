@@ -253,12 +253,12 @@ function renderWeeklyTimetable(data, hideControls = false) {
                     ${!hideControls ? `
                     <div style="display: flex; gap: 8px; flex-shrink:0;">
                         <button
-                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', ${c.subject_id}, '${c.time}', 'attended', '${date}', this)` : `markAttendance(${c.id}, 'attended', '${date}', this)`}"
+                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', '${c.subject_id}', '${c.time}', 'attended', '${date}', this)` : `markAttendance('${c.id}', 'attended', '${date}', this)`}"
                             style="background: ${uiStatus === 'present' ? 'var(--accent-teal)' : 'transparent'}; border: 1px solid var(--accent-teal); color: ${uiStatus === 'present' ? 'var(--bg-color)' : 'var(--accent-teal)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
                             Present
                         </button>
                         <button
-                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', ${c.subject_id}, '${c.time}', 'missed', '${date}', this)` : `markAttendance(${c.id}, 'missed', '${date}', this)`}"
+                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', '${c.subject_id}', '${c.time}', 'missed', '${date}', this)` : `markAttendance('${c.id}', 'missed', '${date}', this)`}"
                             style="background: ${uiStatus === 'absent' ? 'var(--accent-red)' : 'transparent'}; border: 1px solid var(--accent-red); color: ${uiStatus === 'absent' ? 'var(--text-main)' : 'var(--accent-red)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
                             Absent
                         </button>
@@ -318,7 +318,7 @@ function renderTasksView(events, filterStatus = 'all') {
                                 </div>
                             </div>
                         </div>
-                        <select onchange="updateTaskStatus(${e.id}, this.value)" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 6px; font-size: 0.75rem;">
+                        <select onchange="updateTaskStatus('${e.id}', this.value)" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 6px; font-size: 0.75rem;">
                             <option value="planned"     ${e.status === 'planned'     ? 'selected' : ''}>Planning</option>
                             <option value="in_progress" ${e.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
                             <option value="done"        ${e.status === 'done'        ? 'selected' : ''}>Done</option>
@@ -476,9 +476,9 @@ function renderManageView(data, subjects) {
     subjects.forEach(s => {
         html += `
             <div style="display: flex; gap: 8px; align-items: center; background: var(--tint-1); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
-                <input type="text" value="${s.name}" onchange="updateTimetableSubjectName(${s.id}, this.value, null)"
+                <input type="text" value="${s.name}" onchange="updateTimetableSubjectName('${s.id}', this.value, null)"
                        placeholder="Long Name" style="flex: 2; background: transparent; border: 1px solid transparent; color: var(--text-main); font-size: 0.85rem; padding: 4px; border-radius: 4px; font-weight: 600;">
-                <input type="text" value="${s.short_name || ''}" onchange="updateTimetableSubjectName(${s.id}, null, this.value)"
+                <input type="text" value="${s.short_name || ''}" onchange="updateTimetableSubjectName('${s.id}', null, this.value)"
                        placeholder="Short" style="flex: 1; background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); font-size: 0.8rem; padding: 4px; border-radius: 4px; text-align: center;">
             </div>
         `;
@@ -618,12 +618,12 @@ function _buildManageDaySection(day, dayData, subjects) {
 function _renderBaseSlotRow(c, subjects) {
     return `
         <div style="display: flex; gap: 8px; align-items: center; background: var(--tint-1); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
-            <input type="text" value="${c.time}" onchange="updateTimetableEntry(${c.id}, this.value, null, null)"
+            <input type="text" value="${c.time}" onchange="updateTimetableEntry('${c.id}', this.value, null, null)"
                    placeholder="Start" style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;">
             <span style="color: var(--text-muted); font-size: 0.8rem;">to</span>
-            <input type="text" value="${c.end_time || ''}" onchange="updateTimetableEntry(${c.id}, null, this.value, null)"
+            <input type="text" value="${c.end_time || ''}" onchange="updateTimetableEntry('${c.id}', null, this.value, null)"
                    placeholder="End" style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;">
-            <select onchange="updateTimetableEntry(${c.id}, null, null, this.value)"
+            <select onchange="updateTimetableEntry('${c.id}', null, null, this.value)"
                     style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 4px; border-radius: 4px; font-size: 0.85rem;">
                 <option value="" ${c.subject_id == null ? 'selected' : ''}>None</option>
                 ${window.subjectsData.map(s => `<option value="${s.id}" ${s.id === c.subject_id ? 'selected' : ''}>${s.name}</option>`).join('')}
@@ -742,7 +742,7 @@ async function _collectAndSaveOverride(overrideKey, day) {
         const endTime   = row.querySelector('.ov-end')?.value?.trim() || null;
         const rawVal    = row.querySelector('.ov-subject')?.value;
         // Empty string means None slot (no subject selected)
-        const subjectId = rawVal === '' || rawVal == null ? null : parseInt(rawVal);
+        const subjectId = rawVal === '' || rawVal == null || rawVal === 'null' ? null : rawVal;
         if (startTime) {  // Only skip rows with no time; None subject is valid
             classes.push({ subject_id: subjectId, start_time: startTime, end_time: endTime });
         }
@@ -867,7 +867,7 @@ window.updateTimetableEntry = async function(id, startTime, endTime, subjectId) 
             // Update local cache (base_classes)
             entry.time = payload.start_time;
             entry.end_time = payload.end_time;
-            entry.subject_id = parseInt(payload.subject_id);
+            entry.subject_id = payload.subject_id;
             const sub = window.subjectsData.find(s => s.id == entry.subject_id);
             if (sub) { entry.subject = sub.name; entry.short_name = sub.short_name; }
 
