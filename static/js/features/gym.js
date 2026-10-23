@@ -80,6 +80,9 @@
         const preset = id == null ? null : state.presets.find((p) => p.id === id);
         state.editingPresetId = preset ? preset.id : null;
         $('gym-preset-title').textContent = preset ? 'Edit preset' : 'New preset';
+        $('gym-preset-id').value = preset ? preset.id : '';
+        $('gym-preset-id').readOnly = !!preset;
+        if (!preset) window.prefillNextId('gym_preset', 'gym-preset-id');
         $('gym-preset-name').value = preset ? preset.name : '';
         $('gym-preset-weekday').value = preset && preset.weekday != null ? String(preset.weekday) : '';
         const names = preset && preset.exercises.length ? preset.exercises : [''];
@@ -93,7 +96,7 @@
         const names = [...$('gym-preset-exercises').querySelectorAll('input')].map((i) => i.value.trim()).filter(Boolean);
         const body = { name: $('gym-preset-name').value, weekday: $('gym-preset-weekday').value, exercises: names };
         try {
-            if (state.editingPresetId == null) await api('/api/gym/presets', 'POST', body);
+            if (state.editingPresetId == null) await api('/api/gym/presets', 'POST', { ...body, id: $('gym-preset-id').value.trim() || undefined });
             else await api('/api/gym/presets/' + state.editingPresetId, 'PUT', body);
             closeModal('gym-preset-modal');
             await Promise.all([loadPresets(), loadExerciseNames()]);
@@ -279,7 +282,7 @@
         });
         $('gym-preset-chips').addEventListener('click', (e) => {
             const chip = e.target.closest('[data-preset-id]');
-            if (chip) applyPreset(parseInt(chip.dataset.presetId, 10));
+            if (chip) applyPreset(chip.dataset.presetId);
         });
         const rowsBox = $('gym-exercise-rows');
         rowsBox.addEventListener('click', (e) => {
@@ -314,8 +317,8 @@
         $('gym-presets').addEventListener('click', (e) => {
             const edit = e.target.closest('[data-edit-preset]');
             const del = e.target.closest('[data-delete-preset]');
-            if (edit) openPresetEditor(parseInt(edit.dataset.editPreset, 10));
-            if (del) deletePreset(parseInt(del.dataset.deletePreset, 10));
+            if (edit) openPresetEditor(edit.dataset.editPreset);
+            if (del) deletePreset(del.dataset.deletePreset);
         });
 
         // Close on overlay click / Esc

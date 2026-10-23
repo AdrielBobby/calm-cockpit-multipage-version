@@ -29,6 +29,10 @@
                         <input class="acad-input" type="number" id="acad-new-sem-num" min="1" step="1" required>
                     </label>
                     <label class="acad-field">
+                        <span>ID</span>
+                        <input class="acad-input" type="text" id="acad-new-sem-id" pattern="sem_[a-z0-9_]{1,35}" title="sem_ followed by lowercase letters, digits or _" autocomplete="off">
+                    </label>
+                    <label class="acad-field">
                         <span>SGPA</span>
                         <input class="acad-input" type="number" id="acad-new-sem-sgpa" min="0" max="10" step="0.01" required>
                     </label>
@@ -53,6 +57,10 @@
                     <label class="acad-field">
                         <span>New sem #</span>
                         <input class="acad-input" type="number" id="acad-marks-new-sem-num" min="1" step="1" required>
+                    </label>
+                    <label class="acad-field">
+                        <span>ID</span>
+                        <input class="acad-input" type="text" id="acad-marks-new-sem-id" pattern="sem_[a-z0-9_]{1,35}" title="sem_ followed by lowercase letters, digits or _" autocomplete="off">
                     </label>
                     <label class="acad-field">
                         <span>SGPA (optional)</span>
@@ -109,5 +117,5 @@
 
 {% block scripts %}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-    <script src="{{ url_for('static', filename='js/features/academics.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/features/academics.js') }}?v=4"></script>
 {% endblock %}

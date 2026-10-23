@@ -45,6 +45,10 @@
             </div>
             <form class="modal-body" id="asg-form" novalidate>
                 <label class="acad-field">
+                    <span>ID</span>
+                    <input class="acad-input" type="text" id="asg-id" pattern="asg_[a-z0-9_]{1,35}" title="asg_ followed by lowercase letters, digits or _" autocomplete="off">
+                </label>
+                <label class="acad-field">
                     <span>Title</span>
                     <input class="acad-input" type="text" id="asg-title" maxlength="200" placeholder="e.g. DBMS Assignment 2" required>
                 </label>
@@ -83,5 +87,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/features/assignments.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/features/assignments.js') }}?v=2"></script>
 {% endblock %}

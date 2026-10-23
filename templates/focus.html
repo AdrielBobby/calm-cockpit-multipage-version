@@ -62,6 +62,10 @@
             </div>
             <div class="modal-body">
                 <label class="acad-field">
+                    <span>ID</span>
+                    <input class="acad-input" type="text" id="focus-import-id" pattern="plan_[a-z0-9_]{1,35}" title="plan_ followed by lowercase letters, digits or _" autocomplete="off">
+                </label>
+                <label class="acad-field">
                     <span>Plan name</span>
                     <input class="acad-input" type="text" id="focus-import-name" maxlength="80" placeholder="e.g. DBMS Modules 3–4">
                 </label>
@@ -118,5 +122,5 @@
 {% block scripts %}
     <script src="{{ url_for('static', filename='js/features/focus-parser.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/features/focus-timer.js') }}?v=1"></script>
-    <script src="{{ url_for('static', filename='js/features/focus.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/features/focus.js') }}?v=4"></script>
 {% endblock %}

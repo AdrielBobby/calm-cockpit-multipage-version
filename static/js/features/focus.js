@@ -41,7 +41,7 @@
         try { localStorage.setItem(LAST_PLAN_KEY, String(id)); } catch (e) { /* storage unavailable */ }
     }
     function rememberedPlan() {
-        try { return Number(localStorage.getItem(LAST_PLAN_KEY)) || null; } catch (e) { return null; }
+        try { return localStorage.getItem(LAST_PLAN_KEY) || null; } catch (e) { return null; }
     }
 
     /* ── Modals ────────────────────────────────────────────────── */
@@ -384,7 +384,7 @@
         const box = $('focus-queue');
         // Keep an in-progress edit (text and focus) when a phase ends and the queue redraws.
         const editing = box.querySelector('.is-editing');
-        const draft = editing && Number(editing.dataset.id) === state.editingId ? {
+        const draft = editing && editing.dataset.id === state.editingId ? {
             title: editing.querySelector('[data-field="title"]').value,
             description: editing.querySelector('[data-field="description"]').value,
             focused: editing.contains(document.activeElement) ? document.activeElement.dataset.field : null,
@@ -440,7 +440,7 @@
 
     /* ── Queue row actions ─────────────────────────────────────── */
     async function saveRowEdit(li) {
-        const id = parseInt(li.dataset.id, 10);
+        const id = li.dataset.id;
         const title = li.querySelector('[data-field="title"]').value.trim();
         const description = li.querySelector('[data-field="description"]').value.trim();
         if (!title) { setStatus('A session needs a title.', true); return; }
@@ -456,7 +456,7 @@
         const btn = e.target.closest('[data-row]');
         if (!btn) return;
         const li = btn.closest('.focus-row');
-        const session = sessionById(parseInt(li.dataset.id, 10));
+        const session = sessionById(li.dataset.id);
         if (!session) return;
         const action = btn.dataset.row;
 
@@ -505,6 +505,8 @@
     /* ── Import ────────────────────────────────────────────────── */
     function openImport() {
         $('focus-import-name').value = '';
+        $('focus-import-id').value = '';
+        window.prefillNextId('focus_plans', 'focus-import-id');
         $('focus-import-text').value = '';
         $('focus-import-error').textContent = '';
         state.nameDirty = false;
@@ -542,6 +544,7 @@
         if (!sessions.length) return;
         try {
             const res = await api('/api/focus/plans', 'POST', {
+                id: $('focus-import-id').value.trim() || undefined,
                 name: $('focus-import-name').value.trim() || 'Study plan',
                 sessions: sessions.map((s) => ({ title: s.title, description: s.description })),
             });
@@ -631,7 +634,7 @@
         });
 
         $('focus-plan-select').addEventListener('change', (e) => {
-            loadPlan(parseInt(e.target.value, 10)).catch((err) => setStatus(err.message, true));
+            loadPlan(e.target.value).catch((err) => setStatus(err.message, true));
         });
 
         $('focus-import-btn').addEventListener('click', openImport);

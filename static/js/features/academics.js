@@ -41,6 +41,7 @@
         renderSemesterSelect();
         const next = state.semesters.length ? Math.max(...state.semesters.map((s) => s.number)) + 1 : 1;
         $('acad-new-sem-num').placeholder = String(next);
+        $('acad-new-sem-id').placeholder = 'sem_' + next;
     }
 
     function renderSemesterTable() {
@@ -108,9 +109,9 @@
     // Chart.js colours are resolved once at draw time, so redraw after a theme flip.
     document.addEventListener('themechange', renderChart);
 
-    async function saveSemester(number, sgpa, selectForMarks) {
+    async function saveSemester(number, sgpa, selectForMarks, id) {
         try {
-            const res = await api('/api/academics/semesters', 'POST', { number, sgpa });
+            const res = await api('/api/academics/semesters', 'POST', { number, sgpa, id: id || undefined });
             if (selectForMarks) state.marksSemId = res.id;
             await loadSemesters();
             setStatus('Saved semester ' + number + '.');
@@ -131,6 +132,7 @@
         $('acad-add-sem-btn').setAttribute('aria-expanded', String(show));
         if (show) {
             $('acad-marks-new-sem-num').value = nextSemesterNumber();
+            $('acad-marks-new-sem-id').value = 'sem_' + nextSemesterNumber();
             $('acad-marks-new-sem-sgpa').value = '';
             $('acad-marks-new-sem-sgpa').focus();
         }
@@ -318,10 +320,20 @@
 
     /* ── Wiring ────────────────────────────────────────────────── */
     document.addEventListener('DOMContentLoaded', () => {
+        // The id follows the semester number until the user types their own.
+        const followNumber = (numEl, idEl) => numEl.addEventListener('input', () => {
+            if (!idEl.dataset.edited && numEl.value) idEl.value = 'sem_' + numEl.value;
+        });
+        [['acad-new-sem-num', 'acad-new-sem-id'], ['acad-marks-new-sem-num', 'acad-marks-new-sem-id']].forEach(([n, i]) => {
+            followNumber($(n), $(i));
+            $(i).addEventListener('input', () => { $(i).dataset.edited = '1'; });
+        });
         $('acad-sem-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            saveSemester(parseInt($('acad-new-sem-num').value, 10), parseFloat($('acad-new-sem-sgpa').value));
+            saveSemester(parseInt($('acad-new-sem-num').value, 10), parseFloat($('acad-new-sem-sgpa').value), false,
+                         $('acad-new-sem-id').value.trim());
             e.target.reset();
+            delete $('acad-new-sem-id').dataset.edited;
         });
 
         $('acad-sem-body').addEventListener('change', (e) => {
@@ -340,7 +352,7 @@
         });
 
         $('acad-marks-sem').addEventListener('change', (e) => {
-            state.marksSemId = parseInt(e.target.value, 10);
+            state.marksSemId = e.target.value || null;
             loadMarks();
         });
 
@@ -349,7 +361,8 @@
         $('acad-marks-sem-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const ok = await saveSemester(parseInt($('acad-marks-new-sem-num').value, 10),
-                                          $('acad-marks-new-sem-sgpa').value, true);
+                                          $('acad-marks-new-sem-sgpa').value, true,
+                                          $('acad-marks-new-sem-id').value.trim());
             if (ok) toggleMarksSemForm(false);
         });
 

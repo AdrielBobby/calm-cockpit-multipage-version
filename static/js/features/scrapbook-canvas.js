@@ -371,7 +371,7 @@
     function onItemsPointerDown(e) {
         const el = e.target.closest('.scrap-item');
         if (!el || e.button !== 0) return;
-        const item = itemById(Number(el.dataset.item));
+        const item = itemById(el.dataset.item);
         if (!item) return;
         if (state.editingId === item.id && e.target.closest('.scrap-note-text')) return;
         if (e.target.closest('.scrap-item-btn, .scrap-colour-pop')) return;
@@ -505,12 +505,12 @@
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeColourPop(); });
         items.addEventListener('dblclick', (e) => {
             const el = e.target.closest('.scrap-note');
-            if (el && !state.stringMode) startEditing(Number(el.dataset.item));
+            if (el && !state.stringMode) startEditing(el.dataset.item);
         });
         items.addEventListener('click', (e) => {
             const el = e.target.closest('.scrap-item');
             if (!el) return;
-            const item = itemById(Number(el.dataset.item));
+            const item = itemById(el.dataset.item);
             if (e.target.closest('[data-delete-item]')) deleteItem(item.id);
             else if (e.target.closest('[data-colour-item]')) toggleColourPop(item, e.target.closest('[data-colour-item]'));
             else if (e.target.closest('[data-pick-colour]')) setColour(item, e.target.closest('[data-pick-colour]').dataset.pickColour);
@@ -530,7 +530,7 @@
             if (!hit || state.stringMode) return;
             e.stopPropagation();
             commitEditing();
-            select({ kind: 'link', id: Number(hit.dataset.link) });
+            select({ kind: 'link', id: hit.dataset.link });
         });
 
         stage.addEventListener('pointermove', (e) => {

@@ -2,12 +2,32 @@ import sqlite3
 import os
 import re
 import uuid
+import text_ids
 from flask import Flask, render_template, jsonify, request, g, send_from_directory
 from datetime import datetime, timedelta, date as date_type
 
 app = Flask(__name__)
-app.config['DATABASE'] = os.path.join(app.instance_path, 'cockpit.db')
+app.config['DATABASE'] = os.environ.get('COCKPIT_DB') or os.path.join(app.instance_path, 'cockpit.db')
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # scrapbook image uploads
+
+from werkzeug.routing import BaseConverter
+
+class TextIdConverter(BaseConverter):
+    """Text ids like proj_6 / sem_1 (see text_ids.py)."""
+    regex = r'[a-z0-9]+_[a-z0-9_]+'
+
+app.url_map.converters['tid'] = TextIdConverter
+
+def inserted_id(db, table, cur):
+    """The (possibly auto-numbered) id of the row a plain INSERT just created."""
+    return db.execute(f'SELECT id FROM {table} WHERE rowid = ?', (cur.lastrowid,)).fetchone()['id']
+
+def requested_id(db, table, data):
+    """Optional user-chosen id from a create payload: (id or None, error response or None)."""
+    new_id, err, status = text_ids.validate_user_id(db, table, (data or {}).get('id'))
+    if err:
+        return None, (jsonify({"status": "error", "message": err}), status)
+    return new_id, None
 
 def get_db():
     if 'db' not in g:
@@ -87,7 +107,7 @@ def index():
     # PRD says "Max 4-5 goal items displayed as checkboxes."
     # Filter by current week if possible, otherwise just latest goals
     goals_rows = db.execute(
-        'SELECT id, text, is_completed FROM weekly_goals ORDER BY id DESC LIMIT 12'
+        'SELECT id, text, is_completed FROM weekly_goals ORDER BY rowid DESC LIMIT 12'
     ).fetchall()
     weekly_goals = [{"id": r['id'], "text": r['text'], "completed": bool(r['is_completed'])} for r in goals_rows]
 
@@ -182,6 +202,13 @@ def focus():
     return render_template('focus.html', active_view='focus')
 
 # --- API Routes ---
+
+@app.route('/api/next-id/<table>', methods=['GET'])
+def get_next_id(table):
+    """Suggested id for a create form (the user may overwrite it)."""
+    if table not in text_ids.USER_ID_TABLES:
+        return jsonify({"status": "error", "message": "unknown table"}), 404
+    return jsonify({"status": "success", "id": text_ids.next_id(get_db(), table)})
 
 @app.route('/api/subjects', methods=['GET'])
 def get_subjects():
@@ -527,7 +554,7 @@ def save_timetable_override():
     for c in classes:
         # subject_id may be None (meaning "no class this slot") — that is valid.
         raw_subject_id = c.get('subject_id')
-        subject_id = int(raw_subject_id) if raw_subject_id not in (None, '', 'null') else None
+        subject_id = str(raw_subject_id) if raw_subject_id not in (None, '', 'null') else None
         start_time = c.get('start_time', '').strip()
         end_time   = c.get('end_time', '').strip() or None
         if not start_time:  # only skip rows with no time
@@ -704,7 +731,7 @@ def _migrate_subjects(data):
     rows = (data or {}).get('subjects')
     if not isinstance(rows, list) or not rows:
         return None, "Add at least one subject"
-    clean, seen = [], set()
+    clean, seen, seen_ids = [], set(), set()
     for r in rows:
         name = str((r or {}).get('name') or '').strip()
         short = str((r or {}).get('short_name') or '').strip()
@@ -713,7 +740,14 @@ def _migrate_subjects(data):
         if name.lower() in seen:
             return None, f"Duplicate subject: {name}"
         seen.add(name.lower())
-        clean.append((name, short or None))
+        subject_id = str((r or {}).get('id') or '').strip().lower() or None
+        if subject_id:
+            if not text_ids.check_id('subjects', subject_id) or len(subject_id) <= len('subj_'):
+                return None, f"Subject id '{subject_id}' must look like subj_<name> (lowercase letters, digits, _)"
+            if subject_id in seen_ids:
+                return None, f"Duplicate subject id: {subject_id}"
+            seen_ids.add(subject_id)
+        clean.append((subject_id, name, short or None))
     return clean, None
 
 @app.route('/api/semester/migrate', methods=['POST'])
@@ -728,7 +762,7 @@ def migrate_semester():
             db.execute(f'DELETE FROM {table}')
         db.execute('UPDATE assignments SET subject_id = NULL')
         db.execute('DELETE FROM subjects')
-        db.executemany('INSERT INTO subjects (name, short_name) VALUES (?, ?)', subjects)
+        db.executemany('INSERT INTO subjects (id, name, short_name) VALUES (?, ?, ?)', subjects)
         _set_attendance_closed(db, False)
         db.commit()
         return jsonify({"status": "success"})
@@ -910,7 +944,7 @@ def get_transactions():
     rows = db.execute(
         'SELECT t.id, t.date, t.type, t.amount, t.category, t.note, a.name as account_name '
         'FROM transactions t JOIN accounts a ON t.account_id = a.id '
-        'ORDER BY t.date DESC, t.id DESC'
+        'ORDER BY t.date DESC, t.rowid DESC'
     ).fetchall()
     data = [dict(r) for r in rows]
     return jsonify({"status": "success", "data": data})
@@ -926,7 +960,7 @@ def add_transaction():
         account_id = acc['id']
     else:
         cur = db.execute('INSERT INTO accounts (name, type) VALUES (?, ?)', (acc_name, 'other'))
-        account_id = cur.lastrowid
+        account_id = inserted_id(db, 'accounts', cur)
     
     db.execute(
         'INSERT INTO transactions (account_id, date, type, amount, category, note) VALUES (?, ?, ?, ?, ?, ?)',
@@ -935,7 +969,7 @@ def add_transaction():
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/finance/transaction/<int:id>', methods=['DELETE'])
+@app.route('/api/finance/transaction/<tid:id>', methods=['DELETE'])
 def delete_transaction(id):
     db = get_db()
     db.execute('DELETE FROM transactions WHERE id = ?', (id,))
@@ -982,14 +1016,18 @@ def add_goal():
     week_start = now - timedelta(days=now.weekday())
     week_start_str = week_start.strftime("%Y-%m-%d")
     
-    db.execute(
-        'INSERT INTO weekly_goals (text, is_completed, week_start_date) VALUES (?, ?, ?)', 
-        (data.get('text'), 0, week_start_str)
+    goal_id, err = requested_id(db, 'weekly_goals', data)
+    if err:
+        return err
+    cur = db.execute(
+        'INSERT INTO weekly_goals (id, text, is_completed, week_start_date) VALUES (?, ?, ?, ?)',
+        (goal_id, data.get('text'), 0, week_start_str)
     )
+    new_id = inserted_id(db, 'weekly_goals', cur)
     db.commit()
-    return jsonify({"status": "success"})
+    return jsonify({"status": "success", "id": new_id})
 
-@app.route('/api/goals/<int:id>', methods=['PATCH'])
+@app.route('/api/goals/<tid:id>', methods=['PATCH'])
 def toggle_goal(id):
     data = request.json
     db = get_db()
@@ -997,7 +1035,7 @@ def toggle_goal(id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/goals/<int:id>', methods=['DELETE'])
+@app.route('/api/goals/<tid:id>', methods=['DELETE'])
 def delete_goal(id):
     db = get_db()
     db.execute('DELETE FROM weekly_goals WHERE id = ?', (id,))
@@ -1007,7 +1045,7 @@ def delete_goal(id):
 @app.route('/api/goals/all', methods=['GET'])
 def get_goals():
     db = get_db()
-    rows = db.execute('SELECT id, text, is_completed FROM weekly_goals ORDER BY id DESC').fetchall()
+    rows = db.execute('SELECT id, text, is_completed FROM weekly_goals ORDER BY rowid DESC').fetchall()
     data = [{"id": r['id'], "text": r['text'], "completed": bool(r['is_completed'])} for r in rows]
     return jsonify({"status": "success", "data": data})
 
@@ -1016,12 +1054,16 @@ def add_project():
     data = request.json
     db = get_db()
     now_str = datetime.now().isoformat()
-    db.execute('INSERT INTO projects (name, status, last_updated) VALUES (?, ?, ?)', 
-               (data.get('name'), data.get('status', 'planned'), now_str))
+    project_id, err = requested_id(db, 'projects', data)
+    if err:
+        return err
+    cur = db.execute('INSERT INTO projects (id, name, status, last_updated) VALUES (?, ?, ?, ?)',
+                     (project_id, data.get('name'), data.get('status', 'planned'), now_str))
+    new_id = inserted_id(db, 'projects', cur)
     db.commit()
-    return jsonify({"status": "success"})
+    return jsonify({"status": "success", "id": new_id})
 
-@app.route('/api/projects/<int:id>/status', methods=['PATCH'])
+@app.route('/api/projects/<tid:id>/status', methods=['PATCH'])
 def update_project_status(id):
     data = request.json
     db = get_db()
@@ -1031,7 +1073,7 @@ def update_project_status(id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/projects/<int:id>', methods=['DELETE'])
+@app.route('/api/projects/<tid:id>', methods=['DELETE'])
 def delete_project(id):
     db = get_db()
     db.execute('DELETE FROM projects WHERE id = ?', (id,))
@@ -1039,13 +1081,13 @@ def delete_project(id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/projects/<int:id>/logs', methods=['GET'])
+@app.route('/api/projects/<tid:id>/logs', methods=['GET'])
 def get_project_logs(id):
     db = get_db()
     logs = db.execute('SELECT * FROM project_logs WHERE project_id = ? ORDER BY date DESC', (id,)).fetchall()
     return jsonify({"status": "success", "data": [dict(l) for l in logs]})
 
-@app.route('/api/projects/<int:id>/logs', methods=['POST'])
+@app.route('/api/projects/<tid:id>/logs', methods=['POST'])
 def add_project_log(id):
     data = request.json
     db = get_db()
@@ -1153,10 +1195,7 @@ def _assignment_fields(data, partial):
         if sid in (None, ''):
             fields['subject_id'] = None
         else:
-            try:
-                fields['subject_id'] = int(sid)
-            except (TypeError, ValueError):
-                return None, "invalid subject"
+            fields['subject_id'] = str(sid)
             if not get_db().execute('SELECT 1 FROM subjects WHERE id = ?', (fields['subject_id'],)).fetchone():
                 return None, "subject not found"
     if not partial or 'notes' in data:
@@ -1170,7 +1209,7 @@ def list_assignments():
         SELECT a.id, a.title, a.subject_id, s.name AS subject_name, s.short_name AS subject_short,
                a.due_date, a.status, a.notes
         FROM assignments a LEFT JOIN subjects s ON a.subject_id = s.id
-        ORDER BY a.due_date ASC, a.id ASC
+        ORDER BY a.due_date ASC, a.rowid ASC
     ''').fetchall()
     return jsonify({"status": "success", "data": [dict(r) for r in rows]})
 
@@ -1180,15 +1219,19 @@ def create_assignment():
     if err:
         return jsonify({"status": "error", "message": err}), 400
     db = get_db()
+    assignment_id, err = requested_id(db, 'assignments', request.json)
+    if err:
+        return err
     cur = db.execute('''
-        INSERT INTO assignments (title, subject_id, due_date, status, notes, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (fields['title'], fields['subject_id'], fields['due_date'], fields['status'], fields['notes'],
+        INSERT INTO assignments (id, title, subject_id, due_date, status, notes, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (assignment_id, fields['title'], fields['subject_id'], fields['due_date'], fields['status'], fields['notes'],
           datetime.now().isoformat(timespec='seconds')))
+    new_id = inserted_id(db, 'assignments', cur)
     db.commit()
-    return jsonify({"status": "success", "id": cur.lastrowid})
+    return jsonify({"status": "success", "id": new_id})
 
-@app.route('/api/assignments/<int:assignment_id>', methods=['PATCH'])
+@app.route('/api/assignments/<tid:assignment_id>', methods=['PATCH'])
 def update_assignment(assignment_id):
     db = get_db()
     if not db.execute('SELECT 1 FROM assignments WHERE id = ?', (assignment_id,)).fetchone():
@@ -1202,14 +1245,14 @@ def update_assignment(assignment_id):
         db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/assignments/<int:assignment_id>', methods=['DELETE'])
+@app.route('/api/assignments/<tid:assignment_id>', methods=['DELETE'])
 def delete_assignment(assignment_id):
     db = get_db()
     db.execute('DELETE FROM assignments WHERE id = ?', (assignment_id,))
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/calendar/event/<int:id>/update', methods=['POST'])
+@app.route('/api/calendar/event/<tid:id>/update', methods=['POST'])
 def update_calendar_event(id):
     data = request.json
     db = get_db()
@@ -1235,14 +1278,18 @@ def update_calendar_event(id):
 def add_calendar_event():
     data = request.json
     db = get_db()
-    db.execute(
-        'INSERT INTO events (date, title, label, status) VALUES (?, ?, ?, ?)',
-        (data.get('date'), data.get('title'), data.get('label', 'Personal'), data.get('status', 'planned'))
+    event_id, err = requested_id(db, 'events', data)
+    if err:
+        return err
+    cur = db.execute(
+        'INSERT INTO events (id, date, title, label, status) VALUES (?, ?, ?, ?, ?)',
+        (event_id, data.get('date'), data.get('title'), data.get('label', 'Personal'), data.get('status', 'planned'))
     )
+    new_id = inserted_id(db, 'events', cur)
     db.commit()
-    return jsonify({"status": "success"})
+    return jsonify({"status": "success", "id": new_id})
 
-@app.route('/api/calendar/event/<int:id>', methods=['DELETE'])
+@app.route('/api/calendar/event/<tid:id>', methods=['DELETE'])
 def delete_calendar_event(id):
     db = get_db()
     db.execute('DELETE FROM events WHERE id = ?', (id,))
@@ -1252,8 +1299,21 @@ def delete_calendar_event(id):
 @app.route('/api/calendar/events', methods=['GET'])
 def get_calendar_events():
     db = get_db()
-    # Fetch all relevant fields
-    rows = db.execute('SELECT id, date, title, label, status FROM events ORDER BY date ASC').fetchall()
+    query = 'SELECT id, date, title, label, status FROM events'
+    conditions = []
+    params = []
+    for arg, op in (('from', '>='), ('to', '<=')):
+        value = request.args.get(arg)
+        if value:
+            try:
+                datetime.strptime(value, '%Y-%m-%d')
+            except ValueError:
+                return jsonify({"status": "error", "message": f"'{arg}' must be YYYY-MM-DD"}), 400
+            conditions.append(f'date {op} ?')
+            params.append(value)
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
+    rows = db.execute(query + ' ORDER BY date ASC', params).fetchall()
     data = [dict(r) for r in rows]
     return jsonify({"status": "success", "data": data})
 
@@ -1323,16 +1383,19 @@ def academics_upsert_semester():
     if number < 1 or (sgpa is not None and not (0 <= sgpa <= 10)):
         return jsonify({"status": "error", "message": "number must be >= 1 and sgpa between 0 and 10"}), 400
     db = get_db()
+    semester_id, err = requested_id(db, 'semesters', data)
+    if err:
+        return err
     # A missing sgpa creates the semester without one and never wipes an existing value.
     db.execute('''
-        INSERT INTO semesters (number, sgpa) VALUES (?, ?)
+        INSERT INTO semesters (id, number, sgpa) VALUES (?, ?, ?)
         ON CONFLICT(number) DO UPDATE SET sgpa = COALESCE(excluded.sgpa, semesters.sgpa)
-    ''', (number, sgpa))
+    ''', (semester_id, number, sgpa))
     db.commit()
     row = db.execute('SELECT id FROM semesters WHERE number = ?', (number,)).fetchone()
     return jsonify({"status": "success", "id": row['id']})
 
-@app.route('/api/academics/semesters/<int:semester_id>', methods=['DELETE'])
+@app.route('/api/academics/semesters/<tid:semester_id>', methods=['DELETE'])
 def academics_delete_semester(semester_id):
     db = get_db()
     db.execute('DELETE FROM semester_marks WHERE semester_id = ?', (semester_id,))
@@ -1342,13 +1405,13 @@ def academics_delete_semester(semester_id):
 
 @app.route('/api/academics/marks', methods=['GET'])
 def academics_get_marks():
-    semester_id = request.args.get('semester_id', type=int)
+    semester_id = request.args.get('semester_id')
     if semester_id is None:
         return jsonify({"status": "error", "message": "semester_id is required"}), 400
     db = get_db()
     rows = db.execute('''
         SELECT subject_name, component, mark, max_mark, grade FROM semester_marks
-        WHERE semester_id = ? ORDER BY id ASC
+        WHERE semester_id = ? ORDER BY rowid ASC
     ''', (semester_id,)).fetchall()
     subjects = {}
     for r in rows:
@@ -1520,7 +1583,7 @@ def _gym_day(db, date_str):
                 "cardio": False, "steps_10k": False, "exercises": []}
     rows = [dict(r) for r in db.execute('''
         SELECT exercise, sets, reps, set_reps, weight_kg FROM gym_exercise_log
-        WHERE log_id = ? ORDER BY position ASC, id ASC
+        WHERE log_id = ? ORDER BY position ASC, rowid ASC
     ''', (log['id'],)).fetchall()]
     prs = _gym_pr_indexes(db, date_str, rows)
     for i, r in enumerate(rows):
@@ -1611,7 +1674,7 @@ def _gym_read_preset_body(db, preset_id=None):
     if not all(names):
         return None, "exercise names cannot be empty"
     clash = db.execute('SELECT id FROM gym_preset WHERE LOWER(name) = ? AND id != ?',
-                       (name.lower(), preset_id if preset_id is not None else -1)).fetchone()
+                       (name.lower(), preset_id or '')).fetchone()
     if clash:
         return None, "a preset with that name already exists"
     return {"name": name, "weekday": weekday, "exercises": names}, None
@@ -1624,10 +1687,10 @@ def _gym_write_exercises(db, preset_id, names):
 @app.route('/api/gym/presets', methods=['GET'])
 def gym_get_presets():
     db = get_db()
-    presets = [dict(r) for r in db.execute('SELECT id, name, weekday FROM gym_preset ORDER BY position ASC, id ASC').fetchall()]
+    presets = [dict(r) for r in db.execute('SELECT id, name, weekday FROM gym_preset ORDER BY position ASC, rowid ASC').fetchall()]
     for p in presets:
         p['exercises'] = [r['name'] for r in db.execute(
-            'SELECT name FROM gym_preset_exercise WHERE preset_id = ? ORDER BY position ASC, id ASC', (p['id'],)).fetchall()]
+            'SELECT name FROM gym_preset_exercise WHERE preset_id = ? ORDER BY position ASC, rowid ASC', (p['id'],)).fetchall()]
     return jsonify({"status": "success", "data": presets})
 
 @app.route('/api/gym/presets', methods=['POST'])
@@ -1636,13 +1699,18 @@ def gym_create_preset():
     body, err = _gym_read_preset_body(db)
     if err:
         return jsonify({"status": "error", "message": err}), 409 if 'exists' in err else 400
+    preset_id, id_err = requested_id(db, 'gym_preset', request.json)
+    if id_err:
+        return id_err
     pos = db.execute('SELECT COALESCE(MAX(position), -1) + 1 AS p FROM gym_preset').fetchone()['p']
-    cur = db.execute('INSERT INTO gym_preset (name, weekday, position) VALUES (?, ?, ?)', (body['name'], body['weekday'], pos))
-    _gym_write_exercises(db, cur.lastrowid, body['exercises'])
+    cur = db.execute('INSERT INTO gym_preset (id, name, weekday, position) VALUES (?, ?, ?, ?)',
+                     (preset_id, body['name'], body['weekday'], pos))
+    new_id = inserted_id(db, 'gym_preset', cur)
+    _gym_write_exercises(db, new_id, body['exercises'])
     db.commit()
-    return jsonify({"status": "success", "id": cur.lastrowid})
+    return jsonify({"status": "success", "id": new_id})
 
-@app.route('/api/gym/presets/<int:preset_id>', methods=['PUT'])
+@app.route('/api/gym/presets/<tid:preset_id>', methods=['PUT'])
 def gym_update_preset(preset_id):
     db = get_db()
     if not db.execute('SELECT 1 FROM gym_preset WHERE id = ?', (preset_id,)).fetchone():
@@ -1655,7 +1723,7 @@ def gym_update_preset(preset_id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/gym/presets/<int:preset_id>', methods=['DELETE'])
+@app.route('/api/gym/presets/<tid:preset_id>', methods=['DELETE'])
 def gym_delete_preset(preset_id):
     db = get_db()
     db.execute('DELETE FROM gym_preset_exercise WHERE preset_id = ?', (preset_id,))
@@ -1669,7 +1737,7 @@ def gym_get_prs():
     rows = db.execute('''
         SELECT e.exercise, e.weight_kg, e.reps, l.date
         FROM gym_exercise_log e JOIN gym_log l ON l.id = e.log_id
-        WHERE e.weight_kg IS NOT NULL ORDER BY l.date ASC, e.id ASC
+        WHERE e.weight_kg IS NOT NULL ORDER BY l.date ASC, e.rowid ASC
     ''').fetchall()
     best = {}
     for r in rows:  # ascending dates, strict '>' keeps the earliest date that hit the best weight
@@ -1694,7 +1762,7 @@ def gym_get_exercises():
 @app.route('/api/grades/ese-subjects', methods=['GET'])
 def get_ese_subjects():
     db = get_db()
-    rows = db.execute('SELECT * FROM ese_calculator_subjects ORDER BY id ASC').fetchall()
+    rows = db.execute('SELECT * FROM ese_calculator_subjects ORDER BY rowid ASC').fetchall()
     return jsonify({"status": "success", "data": [dict(r) for r in rows]})
 
 @app.route('/api/grades/ese-subjects', methods=['POST'])
@@ -1709,14 +1777,14 @@ def add_ese_subject():
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/grades/ese-subjects/<int:id>', methods=['DELETE'])
+@app.route('/api/grades/ese-subjects/<tid:id>', methods=['DELETE'])
 def delete_ese_subject(id):
     db = get_db()
     db.execute('DELETE FROM ese_calculator_subjects WHERE id = ?', (id,))
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/grades/ese-subjects/<int:id>', methods=['PATCH'])
+@app.route('/api/grades/ese-subjects/<tid:id>', methods=['PATCH'])
 def update_ese_subject(id):
     data = request.json
     db = get_db()
@@ -1727,103 +1795,6 @@ def update_ese_subject(id):
     ''', (data.get('name'), data.get('current'), data.get('maxSess'), data.get('maxESE'), id))
     db.commit()
     return jsonify({"status": "success"})
-
-def _migrate_weekly_overrides_nullable(db):
-    """
-    Ensure weekly_overrides.subject_id allows NULL (supports 'None' slots).
-    SQLite cannot ALTER a column constraint directly, so if the table already
-    exists with NOT NULL we recreate it using the rename-copy-rename pattern,
-    preserving all existing rows and indexes.
-    """
-    # Check if the table already exists
-    existing = db.execute(
-        "SELECT sql FROM sqlite_master WHERE type='table' AND name='weekly_overrides'"
-    ).fetchone()
-
-    if existing is None:
-        # Table doesn't exist yet — create it with nullable subject_id from scratch
-        db.execute('''
-            CREATE TABLE weekly_overrides (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                week_key   TEXT NOT NULL,
-                subject_id INTEGER,
-                start_time TEXT NOT NULL,
-                end_time   TEXT
-            )
-        ''')
-        db.execute('''
-            CREATE UNIQUE INDEX IF NOT EXISTS ux_override_slot
-            ON weekly_overrides (week_key, start_time)
-        ''')
-        return
-
-    # Table exists — check whether subject_id is already nullable
-    create_sql = existing['sql'] or ''
-    if 'subject_id INTEGER NOT NULL' not in create_sql and 'subject_id integer not null' not in create_sql.lower():
-        # Already nullable (or column definition not explicit), nothing to do
-        return
-
-    # Need to migrate: rename old → copy → rename back
-    db.execute('ALTER TABLE weekly_overrides RENAME TO _weekly_overrides_old')
-    db.execute('''
-        CREATE TABLE weekly_overrides (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            week_key   TEXT NOT NULL,
-            subject_id INTEGER,
-            start_time TEXT NOT NULL,
-            end_time   TEXT
-        )
-    ''')
-    db.execute('''
-        INSERT INTO weekly_overrides (id, week_key, subject_id, start_time, end_time)
-        SELECT id, week_key, subject_id, start_time, end_time
-        FROM _weekly_overrides_old
-    ''')
-    db.execute('DROP TABLE _weekly_overrides_old')
-    db.execute('''
-        CREATE UNIQUE INDEX IF NOT EXISTS ux_override_slot
-        ON weekly_overrides (week_key, start_time)
-    ''')
-
-
-def _migrate_semester_marks(db):
-    """Create semester_marks; on first creation, copy legacy internal marks into it."""
-    existed = db.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='semester_marks'"
-    ).fetchone()
-    db.execute('''
-        CREATE TABLE IF NOT EXISTS semester_marks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            semester_id INTEGER NOT NULL,
-            subject_name TEXT NOT NULL,
-            component TEXT NOT NULL CHECK(component IN ('internal', 'sessional', 'end_sem')),
-            mark REAL,
-            max_mark REAL NOT NULL,
-            UNIQUE (semester_id, subject_name, component)
-        )
-    ''')
-    if 'grade' not in [c['name'] for c in db.execute('PRAGMA table_info(semester_marks)')]:
-        db.execute('ALTER TABLE semester_marks ADD COLUMN grade TEXT')
-        db.commit()
-    if existed:
-        return
-    # Legacy data: prefer internal_number = 1, fall back to 2 (first row wins via OR IGNORE).
-    subjects = db.execute('SELECT semester_id, subject_index, name FROM grade_subject_names').fetchall()
-    for s in subjects:
-        legacy = db.execute('''
-            SELECT mark FROM internal_marks
-            WHERE semester_id = ? AND subject_index = ?
-            ORDER BY internal_number ASC LIMIT 1
-        ''', (s['semester_id'], s['subject_index'])).fetchone()
-        mark = legacy['mark'] if legacy else None
-        for component in MARK_COMPONENTS:
-            db.execute('''
-                INSERT OR IGNORE INTO semester_marks (semester_id, subject_name, component, mark, max_mark)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (s['semester_id'], s['name'], component,
-                  mark if component == 'internal' else None, DEFAULT_MAX_MARK[component]))
-    db.commit()
-
 
 # --- Scrapbook Routes ---
 
@@ -1929,7 +1900,7 @@ def scrapbook_boards():
         FROM boards b
         LEFT JOIN board_nodes r ON r.board_id = b.id AND r.parent_id IS NULL
         LEFT JOIN projects p ON p.id = r.project_id
-        ORDER BY b.id ASC
+        ORDER BY b.rowid ASC
     ''').fetchall()
     return jsonify({"status": "success", "data": [dict(r) for r in rows]})
 
@@ -1940,13 +1911,17 @@ def scrapbook_add_board():
     name = _gym_name(data.get('name'), 60)
     if not name:
         return _scrap_err('board name required')
-    cur = db.execute('INSERT INTO boards (name) VALUES (?)', (name,))
+    board_id, err = requested_id(db, 'boards', data)
+    if err:
+        return err
+    cur = db.execute('INSERT INTO boards (id, name) VALUES (?, ?)', (board_id, name))
+    new_id = inserted_id(db, 'boards', cur)
     db.execute('''INSERT INTO board_nodes (board_id, parent_id, category, title, x, y)
-                  VALUES (?, NULL, 'root', ?, 0, 0)''', (cur.lastrowid, name))
+                  VALUES (?, NULL, 'root', ?, 0, 0)''', (new_id, name))
     db.commit()
-    return jsonify({"status": "success", "id": cur.lastrowid})
+    return jsonify({"status": "success", "id": new_id})
 
-@app.route('/api/scrapbook/boards/<int:board_id>', methods=['PATCH'])
+@app.route('/api/scrapbook/boards/<tid:board_id>', methods=['PATCH'])
 def scrapbook_edit_board(board_id):
     db = get_db()
     board = db.execute('SELECT * FROM boards WHERE id = ?', (board_id,)).fetchone()
@@ -1960,7 +1935,7 @@ def scrapbook_edit_board(board_id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/scrapbook/boards/<int:board_id>', methods=['DELETE'])
+@app.route('/api/scrapbook/boards/<tid:board_id>', methods=['DELETE'])
 def scrapbook_delete_board(board_id):
     db = get_db()
     ids = [r['id'] for r in db.execute('SELECT id FROM board_nodes WHERE board_id = ?', (board_id,))]
@@ -1998,7 +1973,7 @@ def scrapbook_categories():
     rows = get_db().execute('''
         SELECT c.id, c.name, c.colour, c.is_preset,
                (SELECT COUNT(*) FROM board_nodes n WHERE n.category = c.name) AS node_count
-        FROM board_categories c ORDER BY c.id
+        FROM board_categories c ORDER BY c.rowid
     ''').fetchall()
     return jsonify({"status": "success", "data": [dict(r) for r in rows]})
 
@@ -2017,7 +1992,7 @@ def scrapbook_add_category():
     db.commit()
     return jsonify({"status": "success", "name": name, "colour": colour})
 
-@app.route('/api/scrapbook/categories/<int:cat_id>', methods=['PATCH'])
+@app.route('/api/scrapbook/categories/<tid:cat_id>', methods=['PATCH'])
 def scrapbook_rename_category(cat_id):
     """Rename a custom category; nodes store the name, so they are renamed with it."""
     db = get_db()
@@ -2035,7 +2010,7 @@ def scrapbook_rename_category(cat_id):
     db.commit()
     return jsonify({"status": "success", "name": name})
 
-@app.route('/api/scrapbook/categories/<int:cat_id>', methods=['DELETE'])
+@app.route('/api/scrapbook/categories/<tid:cat_id>', methods=['DELETE'])
 def scrapbook_delete_category(cat_id):
     """Delete a custom category. Nodes using it move to `move_to` (required if any exist)."""
     db = get_db()
@@ -2053,18 +2028,18 @@ def scrapbook_delete_category(cat_id):
     db.commit()
     return jsonify({"status": "success", "moved": used})
 
-@app.route('/api/scrapbook/boards/<int:board_id>/nodes', methods=['GET'])
+@app.route('/api/scrapbook/boards/<tid:board_id>/nodes', methods=['GET'])
 def scrapbook_nodes(board_id):
     rows = get_db().execute('''
         SELECT n.id, n.parent_id, n.category, n.title, n.x, n.y,
                p.id AS project_id, p.name AS project_name, p.status AS project_status,
                (SELECT COUNT(*) FROM board_items i WHERE i.node_id = n.id) AS item_count
         FROM board_nodes n LEFT JOIN projects p ON p.id = n.project_id
-        WHERE n.board_id = ? ORDER BY n.id
+        WHERE n.board_id = ? ORDER BY n.rowid
     ''', (board_id,)).fetchall()
     return jsonify({"status": "success", "data": [dict(r) for r in rows]})
 
-@app.route('/api/scrapbook/boards/<int:board_id>/nodes', methods=['POST'])
+@app.route('/api/scrapbook/boards/<tid:board_id>/nodes', methods=['POST'])
 def scrapbook_add_node(board_id):
     db = get_db()
     data = request.json or {}
@@ -2085,10 +2060,11 @@ def scrapbook_add_node(board_id):
                         VALUES (?, ?, ?, ?, ?, ?, ?)''',
                      (board_id, parent['id'], category['name'], title,
                       _scrap_float(data.get('x')), _scrap_float(data.get('y')), project_id))
+    new_id = inserted_id(db, 'board_nodes', cur)
     db.commit()
-    return jsonify({"status": "success", "id": cur.lastrowid})
+    return jsonify({"status": "success", "id": new_id})
 
-@app.route('/api/scrapbook/nodes/<int:node_id>', methods=['PATCH'])
+@app.route('/api/scrapbook/nodes/<tid:node_id>', methods=['PATCH'])
 def scrapbook_edit_node(node_id):
     db = get_db()
     node = db.execute('SELECT * FROM board_nodes WHERE id = ?', (node_id,)).fetchone()
@@ -2119,7 +2095,7 @@ def scrapbook_edit_node(node_id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/scrapbook/nodes/<int:node_id>', methods=['DELETE'])
+@app.route('/api/scrapbook/nodes/<tid:node_id>', methods=['DELETE'])
 def scrapbook_delete_node(node_id):
     db = get_db()
     node = db.execute('SELECT parent_id FROM board_nodes WHERE id = ?', (node_id,)).fetchone()
@@ -2131,14 +2107,14 @@ def scrapbook_delete_node(node_id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/scrapbook/nodes/<int:node_id>/canvas', methods=['GET'])
+@app.route('/api/scrapbook/nodes/<tid:node_id>/canvas', methods=['GET'])
 def scrapbook_canvas(node_id):
     db = get_db()
     node = db.execute('SELECT id, title, category FROM board_nodes WHERE id = ?', (node_id,)).fetchone()
     if not node:
         return _scrap_err('node not found', 404)
-    items = db.execute('SELECT * FROM board_items WHERE node_id = ? ORDER BY z, id', (node_id,)).fetchall()
-    links = db.execute('SELECT * FROM board_links WHERE node_id = ? ORDER BY id', (node_id,)).fetchall()
+    items = db.execute('SELECT * FROM board_items WHERE node_id = ? ORDER BY z, rowid', (node_id,)).fetchall()
+    links = db.execute('SELECT * FROM board_links WHERE node_id = ? ORDER BY rowid', (node_id,)).fetchall()
     return jsonify({"status": "success", "node": dict(node),
                     "items": [dict(r) for r in items], "links": [dict(r) for r in links]})
 
@@ -2161,7 +2137,7 @@ def _scrap_item_fields(data, cur):
         out['colour'] = data['colour']
     return out
 
-@app.route('/api/scrapbook/nodes/<int:node_id>/items', methods=['POST'])
+@app.route('/api/scrapbook/nodes/<tid:node_id>/items', methods=['POST'])
 def scrapbook_add_item(node_id):
     db = get_db()
     if not db.execute('SELECT 1 FROM board_nodes WHERE id = ?', (node_id,)).fetchone():
@@ -2181,10 +2157,10 @@ def scrapbook_add_item(node_id):
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                      (node_id, item_type, f['x'], f['y'], f['w'], f['h'], z, f['content'], f['colour'], image_path))
     db.commit()
-    row = db.execute('SELECT * FROM board_items WHERE id = ?', (cur.lastrowid,)).fetchone()
+    row = db.execute('SELECT * FROM board_items WHERE rowid = ?', (cur.lastrowid,)).fetchone()
     return jsonify({"status": "success", "item": dict(row)})
 
-@app.route('/api/scrapbook/items/<int:item_id>', methods=['PATCH'])
+@app.route('/api/scrapbook/items/<tid:item_id>', methods=['PATCH'])
 def scrapbook_edit_item(item_id):
     db = get_db()
     row = db.execute('SELECT * FROM board_items WHERE id = ?', (item_id,)).fetchone()
@@ -2196,7 +2172,7 @@ def scrapbook_edit_item(item_id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/scrapbook/items/<int:item_id>', methods=['DELETE'])
+@app.route('/api/scrapbook/items/<tid:item_id>', methods=['DELETE'])
 def scrapbook_delete_item(item_id):
     db = get_db()
     row = db.execute('SELECT image_path FROM board_items WHERE id = ?', (item_id,)).fetchone()
@@ -2207,7 +2183,7 @@ def scrapbook_delete_item(item_id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/scrapbook/nodes/<int:node_id>/links', methods=['POST'])
+@app.route('/api/scrapbook/nodes/<tid:node_id>/links', methods=['POST'])
 def scrapbook_add_link(node_id):
     db = get_db()
     data = request.json or {}
@@ -2227,11 +2203,12 @@ def scrapbook_add_link(node_id):
         colour = '#ef4444'
     cur = db.execute('INSERT INTO board_links (node_id, from_item, to_item, colour) VALUES (?, ?, ?, ?)',
                      (node_id, a, b, colour))
+    link_id = inserted_id(db, 'board_links', cur)
     db.commit()
-    return jsonify({"status": "success", "link": {"id": cur.lastrowid, "node_id": node_id,
+    return jsonify({"status": "success", "link": {"id": link_id, "node_id": node_id,
                                                   "from_item": a, "to_item": b, "colour": colour}})
 
-@app.route('/api/scrapbook/links/<int:link_id>', methods=['DELETE'])
+@app.route('/api/scrapbook/links/<tid:link_id>', methods=['DELETE'])
 def scrapbook_delete_link(link_id):
     db = get_db()
     db.execute('DELETE FROM board_links WHERE id = ?', (link_id,))
@@ -2291,7 +2268,7 @@ def _focus_timer(db, plan_id):
 @app.route('/api/focus/plans', methods=['GET'])
 def focus_list_plans():
     db = get_db()
-    plans = db.execute('SELECT * FROM focus_plans ORDER BY updated_at DESC, id DESC').fetchall()
+    plans = db.execute('SELECT * FROM focus_plans ORDER BY updated_at DESC, rowid DESC').fetchall()
     return jsonify({"status": "success", "data": [_focus_plan_summary(db, p) for p in plans]})
 
 @app.route('/api/focus/plans', methods=['POST'])
@@ -2311,29 +2288,32 @@ def focus_create_plan():
         return jsonify({"status": "error", "message": err}), 400
     db = get_db()
     now = _focus_now()
+    requested, err = requested_id(db, 'focus_plans', data)
+    if err:
+        return err
     cur = db.execute('''
-        INSERT INTO focus_plans (name, created_at, updated_at, focus_min, short_break_min, long_break_min, sessions_before_long)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (name, now, now, settings['focus_min'], settings['short_break_min'],
+        INSERT INTO focus_plans (id, name, created_at, updated_at, focus_min, short_break_min, long_break_min, sessions_before_long)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (requested, name, now, now, settings['focus_min'], settings['short_break_min'],
           settings['long_break_min'], settings['sessions_before_long']))
-    plan_id = cur.lastrowid
+    plan_id = inserted_id(db, 'focus_plans', cur)
     db.executemany('INSERT INTO focus_sessions (plan_id, position, title, description) VALUES (?, ?, ?, ?)',
                    [(plan_id, i, title, desc) for i, (title, desc) in enumerate(sessions)])
     db.commit()
     return jsonify({"status": "success", "id": plan_id})
 
-@app.route('/api/focus/plans/<int:plan_id>', methods=['GET'])
+@app.route('/api/focus/plans/<tid:plan_id>', methods=['GET'])
 def focus_get_plan(plan_id):
     db = get_db()
     plan = db.execute('SELECT * FROM focus_plans WHERE id = ?', (plan_id,)).fetchone()
     if not plan:
         return jsonify({"status": "error", "message": "plan not found"}), 404
     sessions = [dict(r) for r in db.execute(
-        'SELECT * FROM focus_sessions WHERE plan_id = ? ORDER BY position ASC, id ASC', (plan_id,))]
+        'SELECT * FROM focus_sessions WHERE plan_id = ? ORDER BY position ASC, rowid ASC', (plan_id,))]
     return jsonify({"status": "success", "data": {
         "plan": _focus_plan_summary(db, plan), "sessions": sessions, "timer": _focus_timer(db, plan_id)}})
 
-@app.route('/api/focus/plans/<int:plan_id>', methods=['PATCH'])
+@app.route('/api/focus/plans/<tid:plan_id>', methods=['PATCH'])
 def focus_update_plan(plan_id):
     db = get_db()
     plan = db.execute('SELECT * FROM focus_plans WHERE id = ?', (plan_id,)).fetchone()
@@ -2354,7 +2334,7 @@ def focus_update_plan(plan_id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/focus/plans/<int:plan_id>', methods=['DELETE'])
+@app.route('/api/focus/plans/<tid:plan_id>', methods=['DELETE'])
 def focus_delete_plan(plan_id):
     db = get_db()
     db.execute('DELETE FROM focus_sessions WHERE plan_id = ?', (plan_id,))
@@ -2363,7 +2343,7 @@ def focus_delete_plan(plan_id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/focus/sessions/<int:session_id>', methods=['PATCH'])
+@app.route('/api/focus/sessions/<tid:session_id>', methods=['PATCH'])
 def focus_update_session(session_id):
     db = get_db()
     row = db.execute('SELECT * FROM focus_sessions WHERE id = ?', (session_id,)).fetchone()
@@ -2388,7 +2368,7 @@ def focus_update_session(session_id):
 
 FOCUS_PART_RE = re.compile(r'\s*\(\d+/\d+\)$')
 
-@app.route('/api/focus/sessions/<int:session_id>/extend', methods=['POST'])
+@app.route('/api/focus/sessions/<tid:session_id>/extend', methods=['POST'])
 def focus_extend_session(session_id):
     """Adds one more Pomodoro for a topic: a pending copy right after this session, with the
     topic's parts renumbered "Title (1/n)" .. "Title (n/n)"."""
@@ -2397,7 +2377,7 @@ def focus_extend_session(session_id):
     if not row:
         return jsonify({"status": "error", "message": "session not found"}), 404
     base = FOCUS_PART_RE.sub('', row['title'])
-    group = [r for r in db.execute('SELECT id, title FROM focus_sessions WHERE plan_id = ? ORDER BY position, id',
+    group = [r for r in db.execute('SELECT id, title FROM focus_sessions WHERE plan_id = ? ORDER BY position, rowid',
                                    (row['plan_id'],)) if FOCUS_PART_RE.sub('', r['title']) == base]
     if len(group) >= 12:
         return jsonify({"status": "error", "message": "a topic can have at most 12 Pomodoros"}), 400
@@ -2405,15 +2385,16 @@ def focus_extend_session(session_id):
                (row['plan_id'], row['position']))
     cur = db.execute('INSERT INTO focus_sessions (plan_id, position, title, description) VALUES (?, ?, ?, ?)',
                      (row['plan_id'], row['position'] + 1, base, row['description']))
+    new_session_id = inserted_id(db, 'focus_sessions', cur)
     ids = [r['id'] for r in group]
-    ids.insert(ids.index(session_id) + 1, cur.lastrowid)
+    ids.insert(ids.index(session_id) + 1, new_session_id)
     for i, sid in enumerate(ids, 1):
         db.execute('UPDATE focus_sessions SET title = ? WHERE id = ?', (f"{base} ({i}/{len(ids)})"[:200], sid))
     db.execute('UPDATE focus_plans SET updated_at = ? WHERE id = ?', (_focus_now(), row['plan_id']))
     db.commit()
-    return jsonify({"status": "success", "id": cur.lastrowid})
+    return jsonify({"status": "success", "id": new_session_id})
 
-@app.route('/api/focus/sessions/<int:session_id>', methods=['DELETE'])
+@app.route('/api/focus/sessions/<tid:session_id>', methods=['DELETE'])
 def focus_delete_session(session_id):
     db = get_db()
     db.execute('DELETE FROM focus_sessions WHERE id = ?', (session_id,))
@@ -2421,7 +2402,7 @@ def focus_delete_session(session_id):
     db.commit()
     return jsonify({"status": "success"})
 
-@app.route('/api/focus/plans/<int:plan_id>/timer', methods=['PUT'])
+@app.route('/api/focus/plans/<tid:plan_id>/timer', methods=['PUT'])
 def focus_put_timer(plan_id):
     """Stores the client's timer state; the browser does the ticking."""
     db = get_db()
@@ -2431,7 +2412,8 @@ def focus_put_timer(plan_id):
     phase, next_phase = data.get('phase'), data.get('next_phase')
     if phase not in FOCUS_PHASES or next_phase not in (None, 'focus', 'short_break', 'long_break'):
         return jsonify({"status": "error", "message": "invalid timer phase"}), 400
-    ok_s, session_id = _gym_number(data.get('current_session_id'), int, 1, 2**62)
+    session_id = data.get('current_session_id') or None
+    ok_s = session_id is None or text_ids.check_id('focus_sessions', session_id)
     ok_e, ends_at = _gym_number(data.get('ends_at'), int, 0, 2**53)
     ok_r, remaining = _gym_number(data.get('remaining_sec'), int, 0, 6 * 3600)
     ok_c, count = _gym_number(data.get('focus_count_since_long'), int, 0, 99)
@@ -2452,228 +2434,25 @@ def focus_put_timer(plan_id):
 def init_db_schema():
     with app.app_context():
         db = get_db()
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS semesters (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                number INTEGER UNIQUE NOT NULL,
-                sgpa REAL
-            )
-        ''')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS grade_subject_names (
-                semester_id INTEGER,
-                subject_index INTEGER,
-                name TEXT,
-                PRIMARY KEY (semester_id, subject_index)
-            )
-        ''')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS internal_marks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                semester_id INTEGER,
-                subject_index INTEGER,
-                internal_number INTEGER,
-                mark REAL,
-                UNIQUE (semester_id, subject_index, internal_number)
-            )
-        ''')
-        _migrate_semester_marks(db)
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS ese_calculator_subjects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                subject_name TEXT NOT NULL,
-                current_marks REAL NOT NULL,
-                max_sessional REAL NOT NULL,
-                max_ese REAL NOT NULL,
-                created_at TEXT
-            )
-        ''')
-        # Weekly schedule overrides
-        # subject_id is nullable — NULL means "None" (no class held this slot)
-        # Safe migration: check if column allows NULL; if the table was created with NOT NULL,
-        # recreate it preserving existing data.
-        _migrate_weekly_overrides_nullable(db)
-
-        # Attendance for override class slots
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS override_attendance (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                week_key   TEXT NOT NULL,
-                subject_id INTEGER NOT NULL,
-                start_time TEXT NOT NULL,
-                date       TEXT NOT NULL,
-                status     TEXT NOT NULL CHECK(status IN ('attended', 'missed'))
-            )
-        ''')
-        db.execute('''
-            CREATE UNIQUE INDEX IF NOT EXISTS ux_override_att
-            ON override_attendance (week_key, subject_id, start_time, date)
-        ''')
-
-        # Gym tracking
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS gym_preset (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                name     TEXT NOT NULL,
-                weekday  INTEGER CHECK(weekday IS NULL OR weekday BETWEEN 0 AND 6),
-                position INTEGER NOT NULL DEFAULT 0
-            )
-        ''')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS gym_preset_exercise (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                preset_id INTEGER NOT NULL,
-                name      TEXT NOT NULL,
-                position  INTEGER NOT NULL DEFAULT 0
-            )
-        ''')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS gym_log (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                date        TEXT NOT NULL UNIQUE,
-                preset_name TEXT,
-                notes       TEXT NOT NULL DEFAULT '',
-                cardio      INTEGER NOT NULL DEFAULT 0,
-                steps_10k   INTEGER NOT NULL DEFAULT 0
-            )
-        ''')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS gym_exercise_log (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                log_id    INTEGER NOT NULL,
-                exercise  TEXT NOT NULL,
-                position  INTEGER NOT NULL DEFAULT 0,
-                sets      INTEGER,
-                reps      INTEGER,
-                weight_kg REAL
-            )
-        ''')
-        if 'set_reps' not in [c['name'] for c in db.execute('PRAGMA table_info(gym_exercise_log)')]:
-            db.execute('ALTER TABLE gym_exercise_log ADD COLUMN set_reps TEXT')
-        db.execute('CREATE INDEX IF NOT EXISTS ix_gym_ex_log ON gym_exercise_log (log_id)')
-
-        # Scrapbook
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS boards (
-                id   INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL
-            )
-        ''')
-        # Project links moved from boards to nodes; older DBs keep an unused boards.project_id column.
-        db.execute('DROP INDEX IF EXISTS ux_boards_project')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS board_categories (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                name      TEXT NOT NULL UNIQUE COLLATE NOCASE,
-                colour    TEXT NOT NULL,
-                is_preset INTEGER NOT NULL DEFAULT 0
-            )
-        ''')
-        db.executemany('INSERT OR IGNORE INTO board_categories (name, colour, is_preset) VALUES (?, ?, 1)',
-                       SCRAP_PRESET_CATEGORIES)
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS board_nodes (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                board_id  INTEGER NOT NULL,
-                parent_id INTEGER,
-                category  TEXT NOT NULL,
-                title     TEXT NOT NULL,
-                x         REAL NOT NULL DEFAULT 0,
-                y         REAL NOT NULL DEFAULT 0,
-                project_id INTEGER
-            )
-        ''')
-        if 'project_id' not in [c['name'] for c in db.execute('PRAGMA table_info(board_nodes)')]:
-            db.execute('ALTER TABLE board_nodes ADD COLUMN project_id INTEGER')
-        db.execute('CREATE INDEX IF NOT EXISTS ix_board_nodes_board ON board_nodes (board_id)')
-        db.execute('CREATE UNIQUE INDEX IF NOT EXISTS ux_board_nodes_project ON board_nodes (project_id) WHERE project_id IS NOT NULL')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS board_items (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                node_id    INTEGER NOT NULL,
-                type       TEXT NOT NULL CHECK(type IN ('note', 'image', 'pin')),
-                x          REAL NOT NULL DEFAULT 0,
-                y          REAL NOT NULL DEFAULT 0,
-                w          REAL NOT NULL DEFAULT 200,
-                h          REAL NOT NULL DEFAULT 0,
-                z          INTEGER NOT NULL DEFAULT 0,
-                content    TEXT NOT NULL DEFAULT '',
-                colour     TEXT NOT NULL DEFAULT 'yellow',
-                image_path TEXT
-            )
-        ''')
-        db.execute('CREATE INDEX IF NOT EXISTS ix_board_items_node ON board_items (node_id)')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS board_links (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                node_id   INTEGER NOT NULL,
-                from_item INTEGER NOT NULL,
-                to_item   INTEGER NOT NULL,
-                colour    TEXT NOT NULL DEFAULT '#ef4444'
-            )
-        ''')
-        db.execute('CREATE INDEX IF NOT EXISTS ix_board_links_node ON board_links (node_id)')
-
-        # Focus (Pomodoro)
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS focus_plans (
-                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-                name                 TEXT NOT NULL,
-                created_at           TEXT NOT NULL,
-                updated_at           TEXT NOT NULL,
-                focus_min            INTEGER NOT NULL DEFAULT 25,
-                short_break_min      INTEGER NOT NULL DEFAULT 5,
-                long_break_min       INTEGER NOT NULL DEFAULT 25,
-                sessions_before_long INTEGER NOT NULL DEFAULT 4
-            )
-        ''')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS focus_sessions (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                plan_id      INTEGER NOT NULL,
-                position     INTEGER NOT NULL DEFAULT 0,
-                title        TEXT NOT NULL,
-                description  TEXT,
-                status       TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'completed', 'skipped')),
-                completed_at TEXT
-            )
-        ''')
-        db.execute('CREATE INDEX IF NOT EXISTS ix_focus_sessions_plan ON focus_sessions (plan_id)')
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS focus_timer (
-                plan_id                INTEGER PRIMARY KEY,
-                current_session_id     INTEGER,
-                phase                  TEXT NOT NULL DEFAULT 'idle',
-                next_phase             TEXT,
-                ends_at                INTEGER,
-                remaining_sec          INTEGER,
-                is_paused              INTEGER NOT NULL DEFAULT 0,
-                focus_count_since_long INTEGER NOT NULL DEFAULT 0
-            )
-        ''')
-
-        # Assignments (due dates also appear on the overview calendar)
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS assignments (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                title      TEXT NOT NULL,
-                subject_id INTEGER,
-                due_date   TEXT NOT NULL,
-                status     TEXT NOT NULL DEFAULT 'not_started'
-                           CHECK(status IN ('not_started', 'in_progress', 'submitted')),
-                notes      TEXT NOT NULL DEFAULT '',
-                created_at TEXT
-            )
-        ''')
-        db.execute('CREATE INDEX IF NOT EXISTS ix_assignments_due ON assignments (due_date)')
-
-        # Simple key/value flags (e.g. attendance_closed)
+        for sql in text_ids.TABLES.values():
+            db.execute(sql.replace('CREATE TABLE ', 'CREATE TABLE IF NOT EXISTS ', 1))
         db.execute('''
             CREATE TABLE IF NOT EXISTS app_settings (
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             )
         ''')
+        stale = [t for t in text_ids.TABLES if not text_ids.table_has_text_id(db, t)]
+        if stale:
+            raise RuntimeError('This database still uses numeric ids (%s...). Back it up, then run: '
+                               'python scripts/migrate_text_ids.py' % ', '.join(stale[:3]))
+        # Project links moved from boards to nodes; older DBs keep an unused boards.project_id column.
+        db.execute('DROP INDEX IF EXISTS ux_boards_project')
+        for sql in text_ids.INDEXES:
+            db.execute(sql)
+        text_ids.install_triggers(db)
+        db.executemany('INSERT OR IGNORE INTO board_categories (name, colour, is_preset) VALUES (?, ?, 1)',
+                       SCRAP_PRESET_CATEGORIES)
         db.commit()
 
 init_db_schema()

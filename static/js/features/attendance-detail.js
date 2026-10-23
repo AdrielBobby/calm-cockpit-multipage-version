@@ -76,7 +76,7 @@ function renderBySubjectView(data) {
         html += `
             <tr style="border-bottom: 1px solid var(--card-border);">
                 <td style="padding: 12px 8px;">
-                    <input type="text" value="${item.subject}" onchange="updateAttendanceSubjectName(${subjId}, this.value)" style="background: transparent; border: 1px solid transparent; color: var(--text-main); font-weight: 500; width: 100%; padding: 4px;">
+                    <input type="text" value="${item.subject}" onchange="updateAttendanceSubjectName('${subjId}', this.value)" style="background: transparent; border: 1px solid transparent; color: var(--text-main); font-weight: 500; width: 100%; padding: 4px;">
                 </td>
                 <td style="padding: 12px 8px; color: ${color}; font-weight: bold;">${item.percentage}%</td>
                 <td style="padding: 12px 8px; color: var(--text-muted);">${item.missed} classes</td>
