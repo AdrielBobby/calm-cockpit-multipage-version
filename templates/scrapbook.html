@@ -56,13 +56,14 @@
                 <button type="button" class="scrap-tool" id="scrap-add-pin">Pin</button>
                 <button type="button" class="scrap-tool" id="scrap-string-mode" aria-pressed="false">String</button>
                 <span class="scrap-swatches" id="scrap-string-colours" role="radiogroup" aria-label="String colour"></span>
+                <button type="button" class="scrap-tool" id="scrap-lasso-mode" aria-pressed="false">Lasso</button>
                 <span class="scrap-toolbar-sep"></span>
                 <button type="button" class="scrap-tool" data-zoom="out" aria-label="Zoom out">&minus;</button>
                 <button type="button" class="scrap-tool" data-zoom="fit">Fit</button>
                 <button type="button" class="scrap-tool" data-zoom="in" aria-label="Zoom in">+</button>
             </div>
             <p class="scrap-hint scrap-ui" id="scrap-canvas-hint">Double-click a note to edit &middot; drop or paste images &middot; Delete removes the selection</p>
-            <input type="file" id="scrap-image-input" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+            <input type="file" id="scrap-image-input" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
         </section>
     </main>
 
@@ -162,7 +163,7 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/features/scrapbook-core.js') }}?v=1"></script>
-    <script src="{{ url_for('static', filename='js/features/scrapbook-canvas.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/features/scrapbook-core.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/features/scrapbook-canvas.js') }}?v=3"></script>
     <script src="{{ url_for('static', filename='js/features/scrapbook.js') }}?v=7"></script>
 {% endblock %}

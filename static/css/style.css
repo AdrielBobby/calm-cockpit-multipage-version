@@ -2183,6 +2183,11 @@ body {
 .scrap-item.is-selected { outline: 2px solid var(--accent); outline-offset: 3px; }
 .scrap-item.is-string-source { outline: 2px dashed var(--accent-teal); outline-offset: 3px; }
 .is-stringing, .is-stringing .scrap-item { cursor: crosshair; }
+.scrap-item.is-multi { outline: 2px solid var(--accent); outline-offset: 3px; }
+.is-lassoing { cursor: crosshair; }
+.is-lassoing .scrap-item { cursor: move; }
+.is-lassoing .scrap-item-controls, .is-lassoing .scrap-resize { display: none; }
+.scrap-marquee { position: absolute; pointer-events: none; z-index: 100000; border: 1.5px dashed var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 .scrap-note {
     --note-yellow: #fde68a;

@@ -15,6 +15,7 @@
         idle: 'Double-click a note to edit · drop or paste images · Delete removes the selection',
         first: 'String: click the first item to tie it to (Esc to stop)',
         second: 'String: now click the item to connect it to',
+        lasso: 'Lasso: drag on empty space to select · drag a selected item to move them all · Shift-click adds or removes (Esc to stop)',
     };
 
     const state = {
@@ -22,6 +23,7 @@
         selected: null,              // { kind: 'item' | 'link', id }
         stringMode: false, pendingFrom: null, stringColour: STRING_COLOURS[0].value,
         editingId: null,
+        lassoMode: false, multi: new Set(),   // multi: ids picked with the lasso
     };
     let view = null;
     let opts = {};
@@ -38,6 +40,7 @@
         state.selected = null;
         state.editingId = null;
         setStringMode(false);
+        setLassoMode(false);
         $('scrap-canvas-title').textContent = node.title;
         itemsEl().innerHTML = '';
         $('scrap-canvas-strings').innerHTML = '';
@@ -56,6 +59,7 @@
     function close() {
         commitEditing();
         setStringMode(false);
+        setLassoMode(false);
         state.node = null;
         state.items = [];
         state.links = [];
@@ -105,6 +109,7 @@
         if (item.type === 'note') el.style.minHeight = item.h ? item.h + 'px' : '';
         el.classList.toggle('is-selected', !!(state.selected && state.selected.kind === 'item' && state.selected.id === item.id));
         el.classList.toggle('is-string-source', state.pendingFrom === item.id);
+        el.classList.toggle('is-multi', state.multi.has(item.id));
     }
 
     function renderItems() {
@@ -350,6 +355,81 @@
         });
     }
 
+    /* Move every lasso-selected item by the same delta. */
+    function dragGroup(e, el, item) {
+        const members = state.items.filter((i) => state.multi.has(i.id)).sort((a, b) => a.z - b.z);
+        const starts = members.map((m) => ({ x: m.x, y: m.y }));
+        startDrag(e, el, view, {
+            onStart: () => {
+                let z = maxZ();
+                members.forEach((m) => {
+                    m.z = ++z;
+                    const n = itemNode(m.id);
+                    n.style.zIndex = m.z;
+                    n.classList.add('is-dragging');
+                });
+            },
+            onMove: (dx, dy) => {
+                members.forEach((m, i) => {
+                    m.x = Math.round(starts[i].x + dx);
+                    m.y = Math.round(starts[i].y + dy);
+                    const n = itemNode(m.id);
+                    n.style.left = m.x + 'px';
+                    n.style.top = m.y + 'px';
+                });
+                renderStrings();
+            },
+            onEnd: (moved) => {
+                members.forEach((m) => itemNode(m.id).classList.remove('is-dragging'));
+                if (moved) members.forEach((m) => saveItem(m, { x: m.x, y: m.y, z: m.z }));
+            },
+        });
+    }
+
+    /* Rubber-band over empty space; returns true when it claimed the press. */
+    function startMarquee(e) {
+        if (!state.lassoMode || !state.node || e.target.closest('.scrap-item')) return false;
+        commitEditing();
+        if (!e.shiftKey) state.multi.clear();
+        select(null);
+        const stage = $('scrap-canvas-stage');
+        const from = view.toWorld(e.clientX, e.clientY);
+        const box = document.createElement('div');
+        box.className = 'scrap-marquee';
+        $('scrap-canvas-world').appendChild(box);
+        stage.setPointerCapture(e.pointerId);
+        const rect = (ev) => {
+            const to = view.toWorld(ev.clientX, ev.clientY);
+            return { x1: Math.min(from.x, to.x), y1: Math.min(from.y, to.y), x2: Math.max(from.x, to.x), y2: Math.max(from.y, to.y) };
+        };
+        const move = (ev) => {
+            const r = rect(ev);
+            box.style.left = r.x1 + 'px';
+            box.style.top = r.y1 + 'px';
+            box.style.width = (r.x2 - r.x1) + 'px';
+            box.style.height = (r.y2 - r.y1) + 'px';
+        };
+        const up = (ev) => {
+            stage.removeEventListener('pointermove', move);
+            stage.removeEventListener('pointerup', up);
+            stage.removeEventListener('pointercancel', up);
+            box.remove();
+            const r = rect(ev);
+            state.items.forEach((item) => {
+                const n = itemNode(item.id);
+                const w = item.type === 'pin' ? 28 : (n ? n.offsetWidth : item.w);
+                const h = item.type === 'pin' ? 28 : (n ? n.offsetHeight : 120);
+                if (item.x < r.x2 && item.x + w > r.x1 && item.y < r.y2 && item.y + h > r.y1) state.multi.add(item.id);
+            });
+            refreshItemClasses();
+        };
+        stage.addEventListener('pointermove', move);
+        stage.addEventListener('pointerup', up);
+        stage.addEventListener('pointercancel', up);
+        refreshItemClasses();
+        return true;
+    }
+
     function resizeItem(e, handle, el, item) {
         const start = { w: el.offsetWidth, h: el.offsetHeight };
         startDrag(e, handle, view, {
@@ -380,6 +460,25 @@
             e.stopPropagation();
             pickStringEnd(item);
             return;
+        }
+        if (state.lassoMode) {
+            commitEditing();
+            if (e.shiftKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!state.multi.delete(item.id)) state.multi.add(item.id);
+                refreshItemClasses();
+                return;
+            }
+            if (!state.multi.has(item.id)) {
+                state.multi.clear();
+                state.multi.add(item.id);
+                refreshItemClasses();
+            }
+            if (state.multi.size > 1) {
+                dragGroup(e, el, item);
+                return;
+            }
         }
         if (state.editingId !== item.id) commitEditing();
         select({ kind: 'item', id: item.id });
@@ -413,14 +512,27 @@
     }
 
     /* ── Strings ───────────────────────────────────────────────── */
+    function setLassoMode(on) {
+        state.lassoMode = on;
+        state.multi.clear();
+        const btn = $('scrap-lasso-mode');
+        btn.setAttribute('aria-pressed', String(on));
+        btn.classList.toggle('is-active', on);
+        $('scrap-canvas-stage').classList.toggle('is-lassoing', on);
+        if (on && state.stringMode) setStringMode(false);
+        $('scrap-canvas-hint').textContent = on ? HINTS.lasso : HINTS.idle;
+        if (state.node) refreshItemClasses();
+    }
+
     function setStringMode(on) {
+        if (on && state.lassoMode) setLassoMode(false);
         state.stringMode = on;
         state.pendingFrom = null;
         const btn = $('scrap-string-mode');
         btn.setAttribute('aria-pressed', String(on));
         btn.classList.toggle('is-active', on);
         $('scrap-canvas-stage').classList.toggle('is-stringing', on);
-        $('scrap-canvas-hint').textContent = on ? HINTS.first : HINTS.idle;
+        $('scrap-canvas-hint').textContent = on ? HINTS.first : (state.lassoMode ? HINTS.lasso : HINTS.idle);
         if (state.node) {
             refreshItemClasses();
             renderStrings();
@@ -475,6 +587,7 @@
         opts = options || {};
         const stage = $('scrap-canvas-stage');
         view = createViewport(stage, $('scrap-canvas-world'), {
+            claimPointer: startMarquee,
             onBackgroundDown: () => {
                 commitEditing();
                 if (state.pendingFrom) {
@@ -561,12 +674,15 @@
         document.addEventListener('keydown', (e) => {
             if (!state.node || typingInField(e.target) || (opts.isBlocked && opts.isBlocked())) return;
             if (e.key === 'Delete' || e.key === 'Backspace') {
-                if (state.selected) {
+                if (state.selected && !state.lassoMode) {
                     e.preventDefault();
                     deleteSelected();
                 }
             } else if (e.key === 'Escape') {
-                if (state.stringMode) setStringMode(false);
+                if (state.lassoMode) {
+                    if (state.multi.size) { state.multi.clear(); refreshItemClasses(); }
+                    else setLassoMode(false);
+                } else if (state.stringMode) setStringMode(false);
                 else select(null);
             }
         });
@@ -583,6 +699,7 @@
             e.target.value = '';
         });
         $('scrap-string-mode').addEventListener('click', () => setStringMode(!state.stringMode));
+        $('scrap-lasso-mode').addEventListener('click', () => setLassoMode(!state.lassoMode));
         $('scrap-string-colours').addEventListener('click', (e) => {
             const sw = e.target.closest('[data-swatch]');
             if (!sw) return;

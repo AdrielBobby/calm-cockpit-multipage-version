@@ -107,6 +107,7 @@
 
         stage.addEventListener('pointerdown', (e) => {
             if (e.button !== 0 || e.target.closest(INTERACTIVE)) return;
+            if (options.claimPointer && options.claimPointer(e)) return;
             if (options.onBackgroundDown) options.onBackgroundDown(e);
             const start = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y };
             stage.setPointerCapture(e.pointerId);
