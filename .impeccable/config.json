@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "static/css/style.css"
+        ],
+        "createdAt": "2026-10-29T10:31:08.562Z",
+        "reason": "user confirmed: .asg-card left border is a functional urgency indicator (yellow = soon, red = overdue)"
+      }
+    ]
+  }
+}

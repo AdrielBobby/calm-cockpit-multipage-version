@@ -1525,6 +1525,14 @@ def _gym_set_reps(value, sets, reps):
         parts = [reps] * min(sets or 1, GYM_SET_SLOTS) if reps else []
     return (parts + [None] * GYM_SET_SLOTS)[:GYM_SET_SLOTS]
 
+def _gym_set_weights(value, weight_kg, set_reps):
+    """Per-set weights as a fixed-length list; older rows had one weight for every set."""
+    if value:
+        parts = [float(p) if p else None for p in value.split(',')]
+    else:
+        parts = [weight_kg if n else None for n in set_reps]
+    return (parts + [None] * GYM_SET_SLOTS)[:GYM_SET_SLOTS]
+
 def _gym_parse_exercises(raw):
     if not isinstance(raw, list) or len(raw) > 60:
         return None, "exercises must be a list of at most 60 rows"
@@ -1544,12 +1552,22 @@ def _gym_parse_exercises(raw):
             if not ok:
                 return None, "reps must be valid numbers"
             set_reps.append(n)
-        ok_w, weight = _gym_number(row.get('weight_kg'), float, 0, 1000)
-        if not ok_w:
-            return None, "weight must be a valid number"
+        raw_weights = row.get('set_weights') or []
+        if not isinstance(raw_weights, list) or len(raw_weights) > GYM_SET_SLOTS:
+            return None, f"set_weights must be a list of at most {GYM_SET_SLOTS} values"
+        set_weights = []
+        for v in raw_weights:
+            ok, w = _gym_number(v, float, 0, 1000)
+            if not ok:
+                return None, "weight must be a valid number"
+            set_weights.append(w)
+        # weight_kg stays the heaviest set so PRs and the "best" hint keep working
+        weights = [w for w in set_weights if w is not None]
+        weight = max(weights) if weights else None
         done = [n for n in set_reps if n]
-        parsed.append({"exercise": name, "set_reps": set_reps, "sets": len(done) or None,
-                       "reps": max(done) if done else None, "weight_kg": weight})
+        parsed.append({"exercise": name, "set_reps": set_reps, "set_weights": set_weights,
+                       "sets": len(done) or None, "reps": max(done) if done else None,
+                       "weight_kg": weight})
     return parsed, None
 
 def _gym_pr_indexes(db, date_str, rows):
@@ -1582,13 +1600,14 @@ def _gym_day(db, date_str):
         return {"date": date_str, "exists": False, "preset_name": None, "notes": "",
                 "cardio": False, "steps_10k": False, "exercises": []}
     rows = [dict(r) for r in db.execute('''
-        SELECT exercise, sets, reps, set_reps, weight_kg FROM gym_exercise_log
+        SELECT exercise, sets, reps, set_reps, set_weights, weight_kg FROM gym_exercise_log
         WHERE log_id = ? ORDER BY position ASC, rowid ASC
     ''', (log['id'],)).fetchall()]
     prs = _gym_pr_indexes(db, date_str, rows)
     for i, r in enumerate(rows):
         r['is_pr'] = i in prs
         r['set_reps'] = _gym_set_reps(r['set_reps'], r['sets'], r['reps'])
+        r['set_weights'] = _gym_set_weights(r['set_weights'], r['weight_kg'], r['set_reps'])
     return {"date": date_str, "exists": True, "preset_name": log['preset_name'], "notes": log['notes'],
             "cardio": bool(log['cardio']), "steps_10k": bool(log['steps_10k']), "exercises": rows}
 
@@ -1637,10 +1656,11 @@ def gym_put_log(date_str):
     db.execute('DELETE FROM gym_exercise_log WHERE log_id = ?', (log_id,))
     for pos, ex in enumerate(exercises):
         db.execute('''
-            INSERT INTO gym_exercise_log (log_id, exercise, position, sets, reps, set_reps, weight_kg)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO gym_exercise_log (log_id, exercise, position, sets, reps, set_reps, set_weights, weight_kg)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (log_id, ex['exercise'], pos, ex['sets'], ex['reps'],
-              ','.join('' if n is None else str(n) for n in ex['set_reps']), ex['weight_kg']))
+              ','.join('' if n is None else str(n) for n in ex['set_reps']),
+              ','.join('' if w is None else str(w) for w in ex['set_weights']), ex['weight_kg']))
     db.commit()
     prs = _gym_pr_indexes(db, date_str, exercises)
     return jsonify({"status": "success", "new_prs": [
@@ -2446,6 +2466,8 @@ def init_db_schema():
         if stale:
             raise RuntimeError('This database still uses numeric ids (%s...). Back it up, then run: '
                                'python scripts/migrate_text_ids.py' % ', '.join(stale[:3]))
+        if 'set_weights' not in [c['name'] for c in db.execute('PRAGMA table_info(gym_exercise_log)')]:
+            db.execute('ALTER TABLE gym_exercise_log ADD COLUMN set_weights TEXT')
         # Project links moved from boards to nodes; older DBs keep an unused boards.project_id column.
         db.execute('DROP INDEX IF EXISTS ux_boards_project')
         for sql in text_ids.INDEXES:

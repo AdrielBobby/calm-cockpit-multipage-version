@@ -175,7 +175,8 @@ TABLES = {
         sets      INTEGER,
         reps      INTEGER,
         weight_kg REAL,
-        set_reps  TEXT
+        set_reps  TEXT,
+        set_weights TEXT
     )''',
     'gym_log': '''CREATE TABLE gym_log (
         id          TEXT PRIMARY KEY,

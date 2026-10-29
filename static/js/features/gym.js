@@ -161,9 +161,14 @@
                 <input class="acad-input" data-field="exercise" type="text" list="gym-exercise-list" maxlength="60" value="${esc(r.exercise || '')}" placeholder="Exercise" aria-label="Exercise name">
                 <span class="gym-ex-meta">${r.is_pr ? '<span class="gym-pr-badge">PR</span>' : ''}${best ? `Best ${best.weight_kg} kg` : ''}</span>
             </div>
-            ${[0, 1, 2].map((i) => `<input class="acad-input" data-field="set" type="number" min="1" max="999" step="1" value="${(r.set_reps || [])[i] ?? ''}" aria-label="Reps in set ${i + 1}">`).join('')}
-            <input class="acad-input" data-field="weight_kg" type="number" min="0" max="1000" step="0.5" value="${r.weight_kg ?? ''}" placeholder="kg" aria-label="Weight in kilograms">
             <button type="button" class="acad-icon-btn" data-remove-row aria-label="Remove exercise">${window.icon('x', { size: 16 })}</button>
+            <div class="gym-ex-sets">
+                ${[0, 1, 2].map((i) => `<div class="gym-set">
+                    <input class="acad-input" data-field="set_weight" type="number" min="0" max="1000" step="any" inputmode="decimal" value="${(r.set_weights || [])[i] ?? ''}" placeholder="kg" aria-label="Weight in set ${i + 1} (kg)">
+                    <span class="gym-set-x">×</span>
+                    <input class="acad-input" data-field="set" type="number" min="1" max="999" step="1" inputmode="numeric" value="${(r.set_reps || [])[i] ?? ''}" placeholder="reps" aria-label="Reps in set ${i + 1}">
+                </div>`).join('')}
+            </div>
         </div>`;
     }
 
@@ -175,8 +180,9 @@
         return [...$('gym-exercise-rows').querySelectorAll('.gym-ex-row')].map((row) => {
             const get = (f) => row.querySelector(`[data-field="${f}"]`).value;
             const set_reps = [...row.querySelectorAll('[data-field="set"]')].map((i) => i.value);
-            return { exercise: get('exercise').trim(), set_reps, weight_kg: get('weight_kg') };
-        }).filter((r) => r.exercise || r.set_reps.some(Boolean) || r.weight_kg);
+            const set_weights = [...row.querySelectorAll('[data-field="set_weight"]')].map((i) => i.value);
+            return { exercise: get('exercise').trim(), set_reps, set_weights };
+        }).filter((r) => r.exercise || r.set_reps.some(Boolean) || r.set_weights.some(Boolean));
     }
 
     function renderChips() {
@@ -292,7 +298,7 @@
             if (!rowsBox.children.length) renderExerciseRows([]);
         });
         rowsBox.addEventListener('input', (e) => {
-            if (e.target.matches('[data-field="weight_kg"]')) {
+            if (e.target.matches('[data-field="set_weight"]')) {
                 const badge = e.target.closest('.gym-ex-row').querySelector('.gym-pr-badge');
                 if (badge) badge.remove(); // the saved PR flag no longer matches what's typed
             }
