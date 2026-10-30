@@ -74,13 +74,21 @@
             </li>`;
     }
 
+    // Past its due date and not yet submitted; computed at render time so items move on their own.
+    const isOverdue = (a) => a.status !== 'submitted' && daysUntil(a.due_date) < 0;
+
     function render() {
         const filter = $('asg-filter').value;
+        const overdue = state.items.filter(isOverdue);
+        const overdueCol = document.querySelector('[data-col="overdue"]');
+        overdueCol.hidden = !overdue.length || (filter !== 'all' && filter !== 'overdue');
+        document.querySelector('[data-count="overdue"]').textContent = overdue.length ? `(${overdue.length})` : '';
+        document.querySelector('[data-list="overdue"]').innerHTML = overdue.map(renderCard).join('');
+
         STATUSES.forEach((s) => {
-            const items = state.items.filter((a) => a.status === s);
+            const items = state.items.filter((a) => a.status === s && !isOverdue(a));
             const col = document.querySelector(`[data-col="${s}"]`);
-            col.hidden = filter !== 'all' && filter !== s;
-            document.querySelector(`[data-count="${s}"]`).textContent = items.length ? `(${items.length})` : '';
+            col.hidden = filter !== 'all' && filter !== s;            document.querySelector(`[data-count="${s}"]`).textContent = items.length ? `(${items.length})` : '';
             // Submitted reads most-recent first; open work reads soonest-due first.
             if (s === 'submitted') items.reverse();
             document.querySelector(`[data-list="${s}"]`).innerHTML = items.length

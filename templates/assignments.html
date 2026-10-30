@@ -9,6 +9,7 @@
                     <span>Show</span>
                     <select class="acad-input" id="asg-filter">
                         <option value="all">All</option>
+                        <option value="overdue">Overdue</option>
                         <option value="not_started">Not started</option>
                         <option value="in_progress">In progress</option>
                         <option value="submitted">Submitted</option>
@@ -21,6 +22,10 @@
         <p class="acad-status" id="asg-status" role="status" aria-live="polite"></p>
 
         <div class="asg-board" id="asg-board">
+            <section class="tile asg-col asg-overdue" data-col="overdue" hidden>
+                <div class="tile-header"><h2>Overdue <span class="asg-count" data-count="overdue"></span></h2></div>
+                <ul class="asg-list" data-list="overdue"></ul>
+            </section>
             <section class="tile asg-col" data-col="not_started">
                 <div class="tile-header"><h2>Not started <span class="asg-count" data-count="not_started"></span></h2></div>
                 <ul class="asg-list" data-list="not_started"></ul>
@@ -87,5 +92,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/features/assignments.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/features/assignments.js') }}?v=3"></script>
 {% endblock %}
