@@ -247,7 +247,7 @@ function renderWeeklyTimetable(data, hideControls = false) {
                 <div class="period-card" data-status="${uiStatus}" style="margin-bottom:8px; gap:10px;">
                     <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
                         <span style="color: var(--text-muted); font-size: 0.9rem; white-space:nowrap;">${c.time}</span>
-                        <strong style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.short_name || c.subject}</strong>
+                        <strong style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${window.esc(c.short_name || c.subject)}</strong>
                         ${badge}
                     </div>
                     ${!hideControls ? `
@@ -311,7 +311,7 @@ function renderTasksView(events, filterStatus = 'all') {
                         <div style="display: flex; align-items: center; gap: 16px;">
                             <div style="width: 4px; height: 32px; background: ${window.LABEL_COLORS[e.label] || 'var(--accent-teal)'}; border-radius: 2px;"></div>
                             <div>
-                                <div style="font-weight: 600; margin-bottom: 4px;">${e.title}</div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">${window.esc(e.title)}</div>
                                 <div style="display: flex; gap: 8px; align-items: center;">
                                     <span style="font-size: 0.7rem; color: var(--text-muted); background: var(--tint-2); padding: 2px 8px; border-radius: 4px;">${e.label || 'Personal'}</span>
                                     <span style="font-size: 0.7rem; color: ${STATUS_COLORS[e.status] || 'white'}; font-weight: bold; text-transform: uppercase;">● ${e.status?.replace('_', ' ') || 'planned'}</span>
@@ -476,9 +476,9 @@ function renderManageView(data, subjects) {
     subjects.forEach(s => {
         html += `
             <div style="display: flex; gap: 8px; align-items: center; background: var(--tint-1); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
-                <input type="text" value="${s.name}" onchange="updateTimetableSubjectName('${s.id}', this.value, null)"
+                <input type="text" value="${window.esc(s.name)}" onchange="updateTimetableSubjectName('${s.id}', this.value, null)"
                        placeholder="Long Name" style="flex: 2; background: transparent; border: 1px solid transparent; color: var(--text-main); font-size: 0.85rem; padding: 4px; border-radius: 4px; font-weight: 600;">
-                <input type="text" value="${s.short_name || ''}" onchange="updateTimetableSubjectName('${s.id}', null, this.value)"
+                <input type="text" value="${window.esc(s.short_name || '')}" onchange="updateTimetableSubjectName('${s.id}', null, this.value)"
                        placeholder="Short" style="flex: 1; background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); font-size: 0.8rem; padding: 4px; border-radius: 4px; text-align: center;">
             </div>
         `;
@@ -626,7 +626,7 @@ function _renderBaseSlotRow(c, subjects) {
             <select onchange="updateTimetableEntry('${c.id}', null, null, this.value)"
                     style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 4px; border-radius: 4px; font-size: 0.85rem;">
                 <option value="" ${c.subject_id == null ? 'selected' : ''}>None</option>
-                ${window.subjectsData.map(s => `<option value="${s.id}" ${s.id === c.subject_id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                ${window.subjectsData.map(s => `<option value="${s.id}" ${s.id === c.subject_id ? 'selected' : ''}>${window.esc(s.name)}</option>`).join('')}
             </select>
         </div>`;
 }
@@ -663,7 +663,7 @@ function _renderOverrideSlotRow(c, subjects, day, overrideKey, isNew, idx) {
             <select class="ov-subject" style="flex: 1; background: var(--bg-color); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); color: var(--text-main); padding: 4px; border-radius: 4px; font-size: 0.85rem;"
                     ${onchangeAttr}>
                 <option value="" ${subjectId == null ? 'selected' : ''}>None</option>
-                ${(window.subjectsData || subjects).map(s => `<option value="${s.id}" ${s.id == subjectId ? 'selected' : ''}>${s.name}</option>`).join('')}
+                ${(window.subjectsData || subjects).map(s => `<option value="${s.id}" ${s.id == subjectId ? 'selected' : ''}>${window.esc(s.name)}</option>`).join('')}
             </select>
             <button onclick="removeOverrideSlot(this, '${overrideKey}', '${day}', ${isNew})"
                     title="Remove slot"

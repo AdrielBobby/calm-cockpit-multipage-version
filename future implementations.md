@@ -30,8 +30,9 @@ Legend: [x] done, [ ] not started
 - [x] Workout presets: create / edit / delete, any preset usable on any day. Presets are snapshotted by name in the log, so deleting one never changes history.
 - [x] PRs: a row is a PR when it beats the best earlier weight for that exercise (first-ever entry is the baseline, not a PR). Shown as a badge in the log, announced on save, and listed in the Personal Records card. Computed at read time, so editing an old day keeps later flags consistent.
 - [x] Per-set reps: each exercise has Set 1/2/3 rep boxes (any can be blank) stored in `gym_exercise_log.set_reps` (comma list, added by an automatic `ALTER TABLE`). `sets` and `reps` are still filled (count done / best set) for PRs; old rows load as sets x reps.
-- [x] Tables: `gym_preset`, `gym_preset_exercise`, `gym_log`, `gym_exercise_log` (created in `init_db_schema()`).
-- Not done / ideas: per-exercise progress graphs (data model supports it), per-set weights (currently one kg per exercise), loading the user's weekly gym log in as presets with their exercises (presets store names only), streaks, copy-last-workout.
+- [x] Per-set weights: each set has its own kg (decimals allowed), stored in `gym_exercise_log.set_weights` (comma list, added by an automatic `ALTER TABLE`). `weight_kg` still holds the best set for PRs.
+- [x] Tables: `gym_preset`, `gym_preset_exercise`, `gym_log`, `gym_exercise_log` (definitions in `text_ids.TABLES`, created by `init_db_schema()`).
+- Not done / ideas: per-exercise progress graphs (data model supports it), loading the user's weekly gym log in as presets with their exercises (presets store names only), streaks, copy-last-workout.
 
 ## 3. [x] Scrapbook / noticeboard
 - Done at `/scrapbook` (`templates/scrapbook.html`, `static/js/features/scrapbook-core.js` (API, modals, pan/zoom, drag helpers), `scrapbook.js` (boards + graph), `scrapbook-canvas.js` (node canvas)). Built, tested and merged into `main`.
@@ -43,7 +44,7 @@ Legend: [x] done, [ ] not started
 - [x] Strings: "String" tool, click item A then item B; 5 colours; sagging quadratic curves anchored at each item's pin head, redrawn live while dragging. Click a string to select it, then the "x" at its middle or Delete removes it. Visible strings are drawn above items; their click targets sit below items so a click on an item never grabs a string.
 - [x] Pan (drag the background) + zoom (wheel, toolbar -, Fit, +) on both graph and canvas. Last-opened board remembered in localStorage.
 - [x] Images: `POST /api/scrapbook/upload` (png/jpg/gif/webp, 10 MB max via `MAX_CONTENT_LENGTH`) saves a random filename into `instance/uploads/`, served by `/scrapbook-files/<name>`. Files are deleted when no item references them any more (item, node or board delete).
-- [x] Tables: `boards` (name), `board_categories` (seeded presets + custom), `board_nodes` (board, parent, category, title, x, y, project_id), `board_items` (node, type note/image/pin, x, y, w, h, z, content, colour, image_path), `board_links` (node, from_item, to_item, colour). Created in `init_db_schema()`.
+- [x] Tables: `boards` (name), `board_categories` (seeded presets + custom), `board_nodes` (board, parent, category, title, x, y, project_id), `board_items` (node, type note/image/pin, x, y, w, h, z, content, colour, image_path), `board_links` (node, from_item, to_item, colour). Definitions live in `text_ids.TABLES`.
 - [x] Categories: "Categories" button on the graph toolbar opens a manager. Custom categories can be added, renamed (click the name; Enter saves, Escape cancels; nodes using it are renamed too) and deleted (if nodes use it, you pick a category to move them to first). Built-in ones are read-only. Categories are shared by all boards. Routes: PATCH / DELETE `/api/scrapbook/categories/<id>`.
 - Settled while building: preset categories are Ideas, Research, Design, Tasks, Resources, Inspiration (new ones can be added from the node modal or the Categories manager); strings attach to any item (notes, images, pins).
 - Phone: usable layout (header compacts, no page overflow at 820 / 390px), but interactions are desktop-first: no pinch-zoom, and hover controls are always shown on touch screens.
@@ -61,6 +62,12 @@ Legend: [x] done, [ ] not started
 - [x] Tables: `focus_plans`, `focus_sessions` (pending / completed / skipped, completed_at), `focus_timer` (one row per plan). Routes under `/api/focus/*`.
 - Not done / ideas: AI import (PRD milestone 5: Claude API endpoint for messy planner replies, needs an API key on the server), daily/weekly focus stats (data supports it via `completed_at`), drag-to-reorder sessions, an Overview tile for the active plan, linking plans to Academics subjects.
 
+## 4b. [x] Assignments, readable ids, semester close/migrate
+- Assignments at `/assignments` (`assignments.js`, `assignments` table, `/api/assignments`). Overdue is computed in the browser; due dates appear on the Overview calendar and in the Tasks & Events panel.
+- Text ids on every table (`text_ids.py`, `scripts/migrate_text_ids.py`): prefixes like `proj_`, `asg_`, `subj_`, auto-numbered by triggers; nine create forms let you choose the id.
+- Attendance can be closed for the semester (`app_settings.attendance_closed`) and `POST /api/semester/migrate` seeds the next semester's subjects.
+- Not done / ideas: server-side "due soon" query, linking assignments to calendar events.
+
 ## 5. [ ] Finance view (idea)
 - A dedicated `/finance` view as a nav tab, replacing the old Overview Finance Summary tile (removed because it wasn't being used; the Overview row now gives that space to Weekly Goals).
 - Existing pieces to build on: finance modal (`static/js/features/finance-detail.js`), `/api/finance/*` routes (transactions, summary, clear), `finance_summary` in `app.py`.
@@ -71,6 +78,6 @@ Legend: [x] done, [ ] not started
 
 ## Cross-cutting notes
 - Uploaded images need persistent disk on the host (relevant to hosting plan: Oracle Always Free OK; ephemeral platforms not). Back up `instance/cockpit.db` and `instance/uploads/` together.
-- `app.py` keeps growing (no Blueprints yet; Academics, Gym and Scrapbook routes are all inline, ~2100 lines): splitting into Flask Blueprints per view is the next cleanup. One JS file per view in `static/js/features/` is the pattern in use (Scrapbook uses three).
+- `app.py` keeps growing (no Blueprints yet; Assignments, Academics, Gym, Scrapbook and Focus routes are all inline, ~2480 lines): splitting into Flask Blueprints per view is the next cleanup. One JS file per view in `static/js/features/` is the pattern in use (Scrapbook uses three).
 - Build order: nav shell (done) -> Academics (done) -> Gym (done) -> Scrapbook (done).
 - Housekeeping: everything is pushed to GitHub (origin/main).

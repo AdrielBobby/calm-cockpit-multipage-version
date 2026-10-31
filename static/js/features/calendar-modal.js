@@ -157,7 +157,7 @@ window.selectDay = function(dateStr, events) {
                 <span class="cal-event-dot" style="background:${window.LABEL_COLORS[e.label] || '#888'}"></span>
                 <div class="cal-event-info">
                     <div style="display:flex; justify-content:space-between; align-items: center;">
-                        <strong id="event-title-${e.id}">${e.title}</strong>
+                        <strong id="event-title-${e.id}">${esc(e.title)}</strong>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <span style="font-size: 0.7rem; color: ${STATUS_BADGE[e.status] || 'white'}; text-transform: uppercase; font-weight: bold;">${e.status?.replace('_', ' ') || 'planned'}</span>
                             <button onclick='startEditEvent(${JSON.stringify(e).replace(/"/g, '&quot;')}, "${dateStr}")' style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">✎</button>
@@ -179,7 +179,7 @@ window.startEditEvent = function(event, dateStr) {
         <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; background: var(--tint-1); padding: 12px; border-radius: 8px; border: 1px solid var(--accent);">
             <div style="display: flex; gap: 8px;">
                 <input type="date" id="edit-date-${event.id}" value="${event.date}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 4px; font-size: 0.85rem; ">
-                <input type="text" id="edit-title-${event.id}" value="${event.title}" style="flex: 2; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 4px; font-size: 0.85rem;">
+                <input type="text" id="edit-title-${event.id}" value="${window.esc(event.title)}" style="flex: 2; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 4px; font-size: 0.85rem;">
             </div>
             <div style="display: flex; gap: 8px;">
                 <select id="edit-label-${event.id}" style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 4px; font-size: 0.8rem;">

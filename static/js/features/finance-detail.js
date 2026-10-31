@@ -92,7 +92,7 @@ window.loadFinanceModal = async function(modalBody) {
             html += `
                 <tr style="border-bottom: 1px solid var(--card-border); font-size: 0.9rem;">
                     <td style="padding: 12px 8px;">${t.date}</td>
-                    <td style="padding: 12px 8px;">${t.account_name}</td>
+                    <td style="padding: 12px 8px;">${window.esc(t.account_name)}</td>
                     <td style="padding: 12px 8px;">${t.category || '-'}</td>
                     <td style="padding: 12px 8px; color: ${isExpense ? 'var(--accent-red)' : 'var(--accent-teal)'}; font-weight: 600;">
                         ${isExpense ? '-' : '+'}₹${t.amount}

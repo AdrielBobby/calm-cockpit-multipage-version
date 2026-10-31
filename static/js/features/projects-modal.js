@@ -99,7 +99,7 @@ function renderProjectsList(modalBody, projects) {
                      onmouseenter="this.style.borderColor='var(--tint-3)'; this.style.background='var(--tint-2)';"
                      onmouseleave="this.style.borderColor='var(--card-border)'; this.style.background='var(--tint-1)';">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-                        <strong style="font-size: 1rem; line-height: 1.3;">${proj.name}</strong>
+                        <strong style="font-size: 1rem; line-height: 1.3;">${window.esc(proj.name)}</strong>
                         <button onclick="deleteProject('${proj.id}', event)" aria-label="Delete project" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; flex-shrink: 0; min-width: 32px; min-height: 32px; display:flex; align-items:center; justify-content:center; border-radius: 6px; transition: color 0.2s, background 0.2s;"
                                 onmouseenter="this.style.color='var(--accent-red)'; this.style.background='rgba(239,68,68,0.1)';"
                                 onmouseleave="this.style.color='var(--text-muted)'; this.style.background='transparent';">${window.icon('x', { size: 16 })}</button>
@@ -139,7 +139,7 @@ window.renderProjectDetail = async function(id) {
         </button>
 
         <div style="margin-bottom: 24px;">
-            <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 12px;">${proj.name}</h2>
+            <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 12px;">${window.esc(proj.name)}</h2>
             <div class="project-detail-meta">
                 <span class="project-status-badge" style="background: ${bg}; color: ${color}; border: 1px solid ${color}30;">${label}</span>
                 <span style="font-size: 0.78rem; color: var(--text-muted);">Last updated: ${window.formatTimestamp(proj.last_updated)}</span>
@@ -221,7 +221,7 @@ async function _loadDetailLogs(id) {
                 listDiv.innerHTML = result.data.map(log => `
                     <div style="background: var(--tint-1); border: 1px solid var(--card-border); border-left: 3px solid var(--accent); padding: 12px 14px; border-radius: 8px;">
                         <div style="color: var(--text-muted); font-size: 0.72rem; margin-bottom: 6px;">${new Date(log.date).toLocaleString()}</div>
-                        <div style="font-size: 0.88rem; line-height: 1.5;">${log.note}</div>
+                        <div style="font-size: 0.88rem; line-height: 1.5;">${window.esc(log.note)}</div>
                     </div>
                 `).join('');
             }

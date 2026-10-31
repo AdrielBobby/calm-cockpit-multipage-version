@@ -63,10 +63,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             content.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:16px 0;">Loading tasks...</p>';
             try {
-                const resp = await fetch('/api/calendar/events');
-                const result = await resp.json();
-                const events = (result.data || [])
-                    .filter(e => e.status !== 'done')
+                // Events and assignment due dates together. Past events are dropped;
+                // unsubmitted assignments stay (an overdue one is still a deadline).
+                const now = new Date();
+                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                const events = (await window.fetchCalendarItems())
+                    .filter(e => e.kind === 'assignment' ? e.status !== 'submitted' : (e.status !== 'done' && e.date >= today))
                     .sort((a, b) => new Date(a.date) - new Date(b.date))
                     .slice(0, 6);
 
@@ -77,6 +79,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const STATUS_COLORS = {
                         planned: 'var(--text-muted)',
+                        not_started: 'var(--text-muted)',
+                        submitted: 'var(--accent-teal)',
                         in_progress: 'var(--accent-yellow)',
                         done: 'var(--accent-teal)'
                     };
@@ -85,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dateStr = window.formatDate(e.date, { month: 'short', day: 'numeric' });
                         const accentColor = window.LABEL_COLORS[e.label] || 'var(--accent-teal)';
                         const statusColor = STATUS_COLORS[e.status] || 'var(--text-muted)';
-                        const statusLabel = (e.status || 'planned').replace('_', ' ');
+                        const statusLabel = (e.status || 'planned').replace(/_/g, ' ');
                         html += `
                             <li style="display:flex; align-items:center; gap:10px;
                                        background:var(--tint-1);
@@ -94,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                        padding:8px 12px; border-radius:8px;">
                                 <div style="flex:1; min-width:0;">
                                     <div style="font-size:0.88rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                                        ${e.title}
+                                        ${window.esc(e.title)}
                                     </div>
                                     <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">
                                         ${dateStr}

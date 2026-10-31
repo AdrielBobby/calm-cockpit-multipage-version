@@ -1,72 +1,65 @@
 # Calm Cockpit v2 – Multipage Dashboard
 
-Calm Cockpit v2 is a high-performance, single-viewport student "Mission Control" dashboard. It consolidates daily context into a glanceable overview and utilizes a modular system to provide deep-dive tools without page reloads.
+Calm Cockpit is a single-user student dashboard: an at-a-glance Overview plus dedicated pages for the deeper tools. It runs locally on Flask and SQLite with a vanilla JavaScript front end.
 
-## 🚀 Key Features
+## Pages and features
 
-- **Single-Viewport Overview**: No scrolling required on desktop. See your timetable, attendance, grades, finance, and goals in ~3 seconds.
-- **Multipage/Modal Architecture**: Powered by a centralized Vanilla JS modal system for fast, non-disruptive access to detailed views.
-- **Dynamic Timetable**: Mark attendance (Present/Absent) or set Holidays directly from the dashboard.
-- **Finance Suite**: Real-time balance breakout (Cash, HDFC, Metro Card) with a full transaction log and category tracking.
-- **Interactive Project Logs**: Track development progress with expandable project cards and dedicated activity logs.
-- **Compact Calendar**: Integrated month-view with color-coded event markers and a selected-day agenda view.
-- **ESE Grade Calculator**: A perfect port of the original calculator, providing real-time End-Sem Exam requirement predictions.
-- **Real-Time Sync**: Changes made in any modal are immediately reflected in the main dashboard snapshots.
+| Page | What it does |
+|---|---|
+| **Overview** (`/`) | Today's timetable, attendance snapshot, CGPA, weekly goals, in-progress projects, a month calendar and a Tasks & Events panel. Modals open the full timetable, attendance details, goals, projects and calendar. |
+| **Assignments** (`/assignments`) | Assignments with a subject, due date, status (not started / in progress / submitted) and notes. Past-due, unsubmitted items move to an Overdue column. Due dates also show on the Overview calendar. |
+| **Academics** (`/academics`) | SGPA graph (Chart.js), semester list, per-semester marks and grades, and the ESE grade calculator. |
+| **Gym** (`/gym`) | Workout heatmap, day logs with per-set reps and weights, presets and automatic personal records. |
+| **Scrapbook** (`/scrapbook`) | Boards of linked nodes, each with a canvas of notes, images and pins joined by strings. Image uploads are stored on disk. |
+| **Focus** (`/focus`) | Paste a study plan, turn it into Pomodoro sessions and run the timer. |
 
-## 🛠️ Technical Stack
+Other behaviour worth knowing:
+- **Close attendance / migrate semester:** from the attendance modal you can close the semester's attendance. While closed, marking is blocked and the timetable tiles are empty. "Migrate to next sem" wipes the timetable, subjects, holidays and attendance and seeds the next semester's subjects.
+- **Readable ids:** every row has a text id such as `proj_6`, `sem_1`, `evt_12` or `asg_3`. Create forms suggest the next id and let you type your own.
+- **Finance:** the Overview finance tile was removed. The `/api/finance/*` routes and tables remain but have no UI.
 
-- **Backend**: Python (Flask)
-- **Database**: SQLite (SQLAlchemy compatible)
-- **Frontend**: HTML5, CSS3 (CSS Grid/Flexbox), Vanilla JavaScript (Modular ES6 style)
-- **Design**: Dark SaaS aesthetic with glassmorphism and teal/purple accents.
+## Technical stack
 
-## 📥 Initialization & Setup
+- **Backend:** Python, Flask, raw `sqlite3` (no ORM)
+- **Database:** SQLite at `instance/cockpit.db`
+- **Frontend:** HTML, CSS, vanilla JavaScript; Chart.js (cdnjs) on Academics; Manrope from Google Fonts
 
-### 1. Prerequisites
-Ensure you have **Python 3.8+** installed on your system.
+## Setup
 
-### 2. Installation
-Navigate to the project directory and install the required dependencies:
+1. Install Python 3.9 or newer.
+2. Install the dependency:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Start the server:
+   ```bash
+   python app.py
+   ```
+   Then open `http://127.0.0.1:5000`. On Windows, `start-cockpit.bat` activates `.venv`, starts the server and opens the browser.
+
+There is no separate init step. On start-up the app creates any missing tables, indexes and id triggers in `instance/cockpit.db` (it creates the file if needed).
+
+### Environment variables
+- `COCKPIT_DB`: path to use instead of `instance/cockpit.db`.
+
+### Old databases with numeric ids
+The app refuses to start if it finds a database that still uses integer ids (the message names the tables). Back up the file, then run:
 ```bash
-pip install -r requirements.txt
+python scripts/migrate_text_ids.py [path/to/cockpit.db]
 ```
+The script runs in one transaction and rolls back on any error.
 
-### 3. Database Initialization (First-Time Setup)
-If you are setting up the project for the first time (no `cockpit.db` exists yet), you need to create and initialize the database before running the app.
+## Data and backups
+- Back up `instance/cockpit.db` **and** `instance/uploads/` together; Scrapbook images live in the uploads folder.
+- The app has no login and runs with Flask's debug mode on. Keep it bound to `127.0.0.1` and do not expose it to a network.
 
-Open a terminal in the project root and run:
-```bash
-python app.py initdb
-```
-> This creates the `instance/cockpit.db` SQLite file and sets up all required tables automatically.
-
-Alternatively, you can initialize from the Python shell:
-```bash
-python
->>> from app import app, db
->>> with app.app_context():
-...     db.create_all()
->>> exit()
-```
-
-After initialization the structure should look like:
+## Project layout
 ```text
-calm-cockpit-multipage-version/
-└── instance/
-    └── cockpit.db   ← created after init
+app.py                 Flask app, routes and helpers
+text_ids.py            id prefixes, table definitions, triggers, id migration
+scripts/               one-off scripts (migrate_text_ids.py)
+templates/             base.html + one template per page
+static/js/             main.js, modals.js, theme.js, icons.js
+static/js/features/    one or more scripts per page
+future implementations.md   build log and ideas
 ```
-
-### 4. Running the Dashboard
-Start the Flask server:
-```bash
-python app.py
-```
-Then, visit `http://127.0.0.1:5000` in your web browser.
-
-## 📋 Data Management
-- **Editable Subjects**: Click on any subject name in the Attendance or Internal Grades view to edit it—changes save automatically.
-- **Clear Data**: Use the "Clear All" buttons within modals to reset specific sections (with confirmation safety).
-- **Auto-Sync**: The dashboard uses a global refresh system to ensure snapshots stay current without requiring a page refresh.
-
----
-Built with ❤️ for productivity.
