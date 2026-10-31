@@ -87,7 +87,7 @@ function renderCompactCalendarUI(container, events) {
 
 function generateCompactGrid(year, month, events) {
     return window.generateCalendarGrid(year, month, events, {
-        onClickAttr: (dateStr) => `onclick='selectDay("${dateStr}", ${JSON.stringify(events).replace(/"/g, '&quot;')})'`,
+        onClickAttr: (dateStr) => `onclick="selectDay(${window.jsArg(dateStr)}, ${window.esc(JSON.stringify(events))})"`,
         renderOverflow: (extra) => `<span class="cal-dot-more">+${extra}</span>`,
     });
 }
@@ -159,12 +159,12 @@ window.selectDay = function(dateStr, events) {
                     <div style="display:flex; justify-content:space-between; align-items: center;">
                         <strong id="event-title-${e.id}">${esc(e.title)}</strong>
                         <div style="display: flex; gap: 8px; align-items: center;">
-                            <span style="font-size: 0.7rem; color: ${STATUS_BADGE[e.status] || 'white'}; text-transform: uppercase; font-weight: bold;">${e.status?.replace('_', ' ') || 'planned'}</span>
-                            <button onclick='startEditEvent(${JSON.stringify(e).replace(/"/g, '&quot;')}, "${dateStr}")' style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">✎</button>
-                            <button onclick="deleteCalEvent('${e.id}', '${dateStr}')" aria-label="Delete event" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem;">${window.icon('x', { size: 14 })}</button>
+                            <span style="font-size: 0.7rem; color: ${STATUS_BADGE[e.status] || 'white'}; text-transform: uppercase; font-weight: bold;">${window.esc(e.status?.replace('_', ' ') || 'planned')}</span>
+                            <button onclick="startEditEvent(${window.esc(JSON.stringify(e))}, ${window.jsArg(dateStr)})" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">✎</button>
+                            <button onclick="deleteCalEvent(${window.jsArg(e.id)}, ${window.jsArg(dateStr)})" aria-label="Delete event" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem;">${window.icon('x', { size: 14 })}</button>
                         </div>
                     </div>
-                    <span class="cal-label-badge" style="background:${window.LABEL_COLORS[e.label] || '#888'}22;color:${window.LABEL_COLORS[e.label] || '#888'}">${e.label || 'Personal'}</span>
+                    <span class="cal-label-badge" style="background:${window.LABEL_COLORS[e.label] || '#888'}22;color:${window.LABEL_COLORS[e.label] || '#888'}">${window.esc(e.label || 'Personal')}</span>
                 </div>
             </div>
         `).join('');
@@ -196,8 +196,8 @@ window.startEditEvent = function(event, dateStr) {
                 </select>
             </div>
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button onclick="cancelEditEvent('${event.id}', '${dateStr}')" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Cancel</button>
-                <button onclick="saveEditEvent('${event.id}', '${dateStr}')" style="background: var(--accent); border: none; color: var(--on-accent); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Save</button>
+                <button onclick="cancelEditEvent(${window.jsArg(event.id)}, ${window.jsArg(dateStr)})" style="background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Cancel</button>
+                <button onclick="saveEditEvent(${window.jsArg(event.id)}, ${window.jsArg(dateStr)})" style="background: var(--accent); border: none; color: var(--on-accent); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold;">Save</button>
             </div>
         </div>
     `;

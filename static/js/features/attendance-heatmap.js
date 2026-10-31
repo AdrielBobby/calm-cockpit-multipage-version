@@ -66,7 +66,7 @@ async function _renderAtOffset(container, offset) {
         container.innerHTML = `
             <p style="color:var(--accent-red);font-size:0.85rem;">
                 Failed to load heatmap.<br>
-                <small style="color:var(--text-muted);">${err.message}</small>
+                <small style="color:var(--text-muted);">${_esc(err.message)}</small>
             </p>`;
         return;
     }

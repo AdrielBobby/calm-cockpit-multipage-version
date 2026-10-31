@@ -46,7 +46,7 @@ window.loadProjectsModal = async function(modalBody) {
         renderProjectsList(modalBody, result.data);
     } catch (error) {
         console.error(error);
-        modalBody.innerHTML = `<p style="color: var(--accent-red);">Error loading projects: ${error.message}</p>`;
+        modalBody.innerHTML = `<p style="color: var(--accent-red);">Error loading projects: ${window.esc(error.message)}</p>`;
     }
 };
 
@@ -94,18 +94,18 @@ function renderProjectsList(modalBody, projects) {
             html += `
                 <div class="project-card"
                      data-id="${proj.id}"
-                     onclick="renderProjectDetail('${proj.id}')"
+                     onclick="renderProjectDetail(${window.jsArg(proj.id)})"
                      style="background: var(--tint-1); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 12px; cursor: pointer; transition: border-color 0.2s, background 0.2s;"
                      onmouseenter="this.style.borderColor='var(--tint-3)'; this.style.background='var(--tint-2)';"
                      onmouseleave="this.style.borderColor='var(--card-border)'; this.style.background='var(--tint-1)';">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                         <strong style="font-size: 1rem; line-height: 1.3;">${window.esc(proj.name)}</strong>
-                        <button onclick="deleteProject('${proj.id}', event)" aria-label="Delete project" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; flex-shrink: 0; min-width: 32px; min-height: 32px; display:flex; align-items:center; justify-content:center; border-radius: 6px; transition: color 0.2s, background 0.2s;"
+                        <button onclick="deleteProject(${window.jsArg(proj.id)}, event)" aria-label="Delete project" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; flex-shrink: 0; min-width: 32px; min-height: 32px; display:flex; align-items:center; justify-content:center; border-radius: 6px; transition: color 0.2s, background 0.2s;"
                                 onmouseenter="this.style.color='var(--accent-red)'; this.style.background='rgba(239,68,68,0.1)';"
                                 onmouseleave="this.style.color='var(--text-muted)'; this.style.background='transparent';">${window.icon('x', { size: 16 })}</button>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="project-status-badge" style="background: ${bg}; color: ${color}; border: 1px solid ${color}30;">${label}</span>
+                        <span class="project-status-badge" style="background: ${bg}; color: ${color}; border: 1px solid ${color}30;">${window.esc(label)}</span>
                         <span style="font-size: 0.72rem; color: var(--text-muted);">Updated ${window.formatTimestamp(proj.last_updated)}</span>
                     </div>
                     <div style="font-size: 0.78rem; color: var(--text-muted); display:flex; align-items:center; gap:4px;">
@@ -141,17 +141,17 @@ window.renderProjectDetail = async function(id) {
         <div style="margin-bottom: 24px;">
             <h2 style="font-size: 1.4rem; font-weight: 700; margin-bottom: 12px;">${window.esc(proj.name)}</h2>
             <div class="project-detail-meta">
-                <span class="project-status-badge" style="background: ${bg}; color: ${color}; border: 1px solid ${color}30;">${label}</span>
+                <span class="project-status-badge" style="background: ${bg}; color: ${color}; border: 1px solid ${color}30;">${window.esc(label)}</span>
                 <span style="font-size: 0.78rem; color: var(--text-muted);">Last updated: ${window.formatTimestamp(proj.last_updated)}</span>
             </div>
 
             <p class="project-description" style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px;">
-                ${proj.description || ''}
+                ${window.esc(proj.description || '')}
             </p>
 
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <label style="font-size: 0.75rem; color: var(--text-muted);">Change status:</label>
-                <select onchange="updateProjectStatus('${proj.id}', this.value)"
+                <select onchange="updateProjectStatus(${window.jsArg(proj.id)}, this.value)"
                         style="background: var(--bg-color); border: 1px solid var(--card-border); color: ${color}; font-weight: 600; font-size: 0.8rem; padding: 6px 10px; border-radius: 6px; cursor: pointer;">
                     <option value="planned"     ${proj.status === 'planned'     ? 'selected' : ''}>Planned</option>
                     <option value="in_progress" ${proj.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
@@ -168,7 +168,7 @@ window.renderProjectDetail = async function(id) {
                 <input type="text" id="detail-log-note-${proj.id}"
                        placeholder="What did you work on?"
                        style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 8px 12px; border-radius: 8px; font-size: 0.88rem;">
-                <button onclick="addProjectLogFromDetail('${proj.id}')"
+                <button onclick="addProjectLogFromDetail(${window.jsArg(proj.id)})"
                         style="background: var(--accent-teal); color: var(--bg-color); border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem; white-space: nowrap;">
                     Add Log
                 </button>

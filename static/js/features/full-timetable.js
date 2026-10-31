@@ -196,7 +196,7 @@ function renderWeeklyTimetable(data, hideControls = false) {
                     ${overrideBadge}
                 </h3>
                 ${!hideControls && date && !isWeekend ? `
-                    <button onclick="toggleHoliday('${date}', ${isHoliday}, this)"
+                    <button onclick="toggleHoliday(${window.jsArg(date)}, ${isHoliday}, this)"
                             style="background: ${isHoliday ? 'var(--accent-red)' : 'rgba(239, 68, 68, 0.1)'};
                                    border: 1px solid var(--accent-red);
                                    color: ${isHoliday ? 'white' : 'var(--accent-red)'};
@@ -253,12 +253,12 @@ function renderWeeklyTimetable(data, hideControls = false) {
                     ${!hideControls ? `
                     <div style="display: flex; gap: 8px; flex-shrink:0;">
                         <button
-                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', '${c.subject_id}', '${c.time}', 'attended', '${date}', this)` : `markAttendance('${c.id}', 'attended', '${date}', this)`}"
+                            onclick="${isOverrideSlot ? `markOverrideAttendance(${window.jsArg(dayData.override_key)}, ${window.jsArg(c.subject_id)}, ${window.jsArg(c.time)}, 'attended', ${window.jsArg(date)}, this)` : `markAttendance(${window.jsArg(c.id)}, 'attended', ${window.jsArg(date)}, this)`}"
                             style="background: ${uiStatus === 'present' ? 'var(--accent-teal)' : 'transparent'}; border: 1px solid var(--accent-teal); color: ${uiStatus === 'present' ? 'var(--bg-color)' : 'var(--accent-teal)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
                             Present
                         </button>
                         <button
-                            onclick="${isOverrideSlot ? `markOverrideAttendance('${dayData.override_key}', '${c.subject_id}', '${c.time}', 'missed', '${date}', this)` : `markAttendance('${c.id}', 'missed', '${date}', this)`}"
+                            onclick="${isOverrideSlot ? `markOverrideAttendance(${window.jsArg(dayData.override_key)}, ${window.jsArg(c.subject_id)}, ${window.jsArg(c.time)}, 'missed', ${window.jsArg(date)}, this)` : `markAttendance(${window.jsArg(c.id)}, 'missed', ${window.jsArg(date)}, this)`}"
                             style="background: ${uiStatus === 'absent' ? 'var(--accent-red)' : 'transparent'}; border: 1px solid var(--accent-red); color: ${uiStatus === 'absent' ? 'var(--text-main)' : 'var(--accent-red)'}; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: all 0.2s;">
                             Absent
                         </button>
@@ -313,12 +313,12 @@ function renderTasksView(events, filterStatus = 'all') {
                             <div>
                                 <div style="font-weight: 600; margin-bottom: 4px;">${window.esc(e.title)}</div>
                                 <div style="display: flex; gap: 8px; align-items: center;">
-                                    <span style="font-size: 0.7rem; color: var(--text-muted); background: var(--tint-2); padding: 2px 8px; border-radius: 4px;">${e.label || 'Personal'}</span>
-                                    <span style="font-size: 0.7rem; color: ${STATUS_COLORS[e.status] || 'white'}; font-weight: bold; text-transform: uppercase;">● ${e.status?.replace('_', ' ') || 'planned'}</span>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); background: var(--tint-2); padding: 2px 8px; border-radius: 4px;">${window.esc(e.label || 'Personal')}</span>
+                                    <span style="font-size: 0.7rem; color: ${STATUS_COLORS[e.status] || 'white'}; font-weight: bold; text-transform: uppercase;">● ${window.esc(e.status?.replace('_', ' ') || 'planned')}</span>
                                 </div>
                             </div>
                         </div>
-                        <select onchange="updateTaskStatus('${e.id}', this.value)" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 6px; font-size: 0.75rem;">
+                        <select onchange="updateTaskStatus(${window.jsArg(e.id)}, this.value)" style="background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 6px; border-radius: 6px; font-size: 0.75rem;">
                             <option value="planned"     ${e.status === 'planned'     ? 'selected' : ''}>Planning</option>
                             <option value="in_progress" ${e.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
                             <option value="done"        ${e.status === 'done'        ? 'selected' : ''}>Done</option>
@@ -476,9 +476,9 @@ function renderManageView(data, subjects) {
     subjects.forEach(s => {
         html += `
             <div style="display: flex; gap: 8px; align-items: center; background: var(--tint-1); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
-                <input type="text" value="${window.esc(s.name)}" onchange="updateTimetableSubjectName('${s.id}', this.value, null)"
+                <input type="text" value="${window.esc(s.name)}" onchange="updateTimetableSubjectName(${window.jsArg(s.id)}, this.value, null)"
                        placeholder="Long Name" style="flex: 2; background: transparent; border: 1px solid transparent; color: var(--text-main); font-size: 0.85rem; padding: 4px; border-radius: 4px; font-weight: 600;">
-                <input type="text" value="${window.esc(s.short_name || '')}" onchange="updateTimetableSubjectName('${s.id}', null, this.value)"
+                <input type="text" value="${window.esc(s.short_name || '')}" onchange="updateTimetableSubjectName(${window.jsArg(s.id)}, null, this.value)"
                        placeholder="Short" style="flex: 1; background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); font-size: 0.8rem; padding: 4px; border-radius: 4px; text-align: center;">
             </div>
         `;
@@ -518,7 +518,7 @@ function _buildManageDaySection(day, dayData, subjects) {
         ? `<span class="override-badge">✦ Modified this week</span>`
         : '';
     const revertLink = isOverride
-        ? `<button class="day-revert-link" onclick="revertOverride('${overrideKey}', '${day}')" title="Remove this week's override and go back to the base schedule">↩ Revert to base</button>`
+        ? `<button class="day-revert-link" onclick="revertOverride(${window.jsArg(overrideKey)}, ${window.jsArg(day)})" title="Remove this week's override and go back to the base schedule">↩ Revert to base</button>`
         : '';
 
     // ── Saturday: override mode is forced ON ─────────────────────
@@ -534,7 +534,7 @@ function _buildManageDaySection(day, dayData, subjects) {
            </label>`
         : `<label class="override-toggle-label" title="When ON, changes apply only to this week">
                <input type="checkbox" id="${toggleId}" class="override-toggle-cb" data-day="${day}" ${defaultOn ? 'checked' : ''}
-                   onchange="onOverrideToggleChange('${day}', '${overrideKey}', this.checked)">
+                   onchange="onOverrideToggleChange(${window.jsArg(day)}, ${window.jsArg(overrideKey)}, this.checked)">
                <span class="override-toggle-track" id="toggle-track-${day}">This week only</span>
            </label>`;
 
@@ -561,11 +561,11 @@ function _buildManageDaySection(day, dayData, subjects) {
                     ${_renderOverrideSlotRows([], subjects, day, overrideKey, true)}
                 </div>
                 <div style="display:flex; gap:8px; margin-top:10px; align-items:center;">
-                    <button onclick="addOverrideSlot('${day}')"
+                    <button onclick="addOverrideSlot(${window.jsArg(day)})"
                             style="background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
                         + Add class slot
                     </button>
-                    <button onclick="saveNewOverride('${overrideKey}', '${day}')"
+                    <button onclick="saveNewOverride(${window.jsArg(overrideKey)}, ${window.jsArg(day)})"
                             style="background: var(--accent); border: none; color: var(--on-accent); padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 700;">
                         Save Saturday schedule
                     </button>
@@ -599,12 +599,12 @@ function _buildManageDaySection(day, dayData, subjects) {
                     ${_renderOverrideSlotRows(editClasses, subjects, day, overrideKey, !isOverride)}
                 </div>
                 <div style="display:flex; gap:8px; margin-top:8px; align-items:center; flex-wrap:wrap;">
-                    <button onclick="addOverrideSlot('${day}')"
+                    <button onclick="addOverrideSlot(${window.jsArg(day)})"
                             style="background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
                         + Add slot
                     </button>
                     ${!isOverride ? `
-                    <button onclick="saveNewOverride('${overrideKey}', '${day}')"
+                    <button onclick="saveNewOverride(${window.jsArg(overrideKey)}, ${window.jsArg(day)})"
                             style="background: var(--accent); border: none; color: var(--on-accent); padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 700;">
                         Save as "This week only"
                     </button>` : ''}
@@ -618,12 +618,12 @@ function _buildManageDaySection(day, dayData, subjects) {
 function _renderBaseSlotRow(c, subjects) {
     return `
         <div style="display: flex; gap: 8px; align-items: center; background: var(--tint-1); padding: 8px; border-radius: 8px; border: 1px solid var(--card-border);">
-            <input type="text" value="${c.time}" onchange="updateTimetableEntry('${c.id}', this.value, null, null)"
+            <input type="text" value="${c.time}" onchange="updateTimetableEntry(${window.jsArg(c.id)}, this.value, null, null)"
                    placeholder="Start" style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;">
             <span style="color: var(--text-muted); font-size: 0.8rem;">to</span>
-            <input type="text" value="${c.end_time || ''}" onchange="updateTimetableEntry('${c.id}', null, this.value, null)"
+            <input type="text" value="${c.end_time || ''}" onchange="updateTimetableEntry(${window.jsArg(c.id)}, null, this.value, null)"
                    placeholder="End" style="width: 70px; background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 0.8rem; padding: 4px; border-radius: 4px;">
-            <select onchange="updateTimetableEntry('${c.id}', null, null, this.value)"
+            <select onchange="updateTimetableEntry(${window.jsArg(c.id)}, null, null, this.value)"
                     style="flex: 1; background: var(--bg-color); border: 1px solid var(--card-border); color: var(--text-main); padding: 4px; border-radius: 4px; font-size: 0.85rem;">
                 <option value="" ${c.subject_id == null ? 'selected' : ''}>None</option>
                 ${window.subjectsData.map(s => `<option value="${s.id}" ${s.id === c.subject_id ? 'selected' : ''}>${window.esc(s.name)}</option>`).join('')}
@@ -648,7 +648,7 @@ function _renderOverrideSlotRow(c, subjects, day, overrideKey, isNew, idx) {
 
     const onchangeAttr = isNew
         ? ''  // collect-then-save: no onchange
-        : `onchange="onOverrideRowChange('${overrideKey}', '${day}')"`;
+        : `onchange="onOverrideRowChange(${window.jsArg(overrideKey)}, ${window.jsArg(day)})"`;
 
     return `
         <div class="override-slot-row" data-start="${startVal}" data-end="${endVal}" data-subject="${subjectId}"
@@ -665,7 +665,7 @@ function _renderOverrideSlotRow(c, subjects, day, overrideKey, isNew, idx) {
                 <option value="" ${subjectId == null ? 'selected' : ''}>None</option>
                 ${(window.subjectsData || subjects).map(s => `<option value="${s.id}" ${s.id == subjectId ? 'selected' : ''}>${window.esc(s.name)}</option>`).join('')}
             </select>
-            <button onclick="removeOverrideSlot(this, '${overrideKey}', '${day}', ${isNew})"
+            <button onclick="removeOverrideSlot(this, ${window.jsArg(overrideKey)}, ${window.jsArg(day)}, ${isNew})"
                     title="Remove slot"
                     aria-label="Remove slot"
                     style="background: rgba(239,68,68,0.1); border: 1px solid var(--accent-red); color: var(--accent-red); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0;">

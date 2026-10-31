@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </div>
                                 </div>
                                 <span style="font-size:0.65rem; color:${statusColor}; font-weight:bold; text-transform:uppercase; white-space:nowrap;">
-                                    ● ${statusLabel}
+                                    ● ${window.esc(statusLabel)}
                                 </span>
                             </li>`;
                     });
@@ -161,13 +161,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const preview = _projLogPreview(proj);
             html += `
                 <div class="proj-tile-card proj-tile-card--inprogress"
-                     onclick="window.openProjectFromTile && window.openProjectFromTile('${proj.id}')"
+                     onclick="window.openProjectFromTile && window.openProjectFromTile(${window.jsArg(proj.id)})"
                      role="button" tabindex="0"
-                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile('${proj.id}')"
+                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile(${window.jsArg(proj.id)})"
                      onmouseenter="this.style.borderColor='rgba(6,214,160,0.4)'; this.style.background='rgba(6,214,160,0.06)';"
                      onmouseleave="this.style.borderColor='rgba(6,214,160,0.18)'; this.style.background='var(--tint-1)';">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                        <span style="font-weight:500; font-size:0.9rem; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${proj.name}</span>
+                        <span style="font-weight:500; font-size:0.9rem; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${window.esc(proj.name)}</span>
                         <span style="flex-shrink:0; font-size:0.65rem; padding:2px 7px; border-radius:10px;
                                      background:rgba(6,214,160,0.12); color:var(--accent-teal);
                                      border:1px solid rgba(6,214,160,0.25); white-space:nowrap; font-weight:600; text-transform:uppercase; letter-spacing:0.03em;">
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="proj-tile-log-preview">
                         ${preview
-                            ? `<span style="color:var(--text-muted);">Latest:</span> ${preview}`
+                            ? `<span style="color:var(--text-muted);">Latest:</span> ${window.esc(preview)}`
                             : `<span style="color:var(--text-muted); font-style:italic;">No recent update</span>`
                         }
                     </div>
@@ -209,13 +209,13 @@ document.addEventListener('DOMContentLoaded', () => {
         shown.forEach(proj => {
             html += `
                 <div class="proj-tile-card proj-tile-card--paused"
-                     onclick="window.openProjectFromTile && window.openProjectFromTile('${proj.id}')"
+                     onclick="window.openProjectFromTile && window.openProjectFromTile(${window.jsArg(proj.id)})"
                      role="button" tabindex="0"
-                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile('${proj.id}')"
+                     onkeydown="if(event.key==='Enter')window.openProjectFromTile&&window.openProjectFromTile(${window.jsArg(proj.id)})"
                      onmouseenter="this.style.borderColor='rgba(245,158,11,0.4)'; this.style.background='rgba(245,158,11,0.06)';"
                      onmouseleave="this.style.borderColor='rgba(245,158,11,0.18)'; this.style.background='var(--tint-1)';">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                        <span style="font-weight:500; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${proj.name}</span>
+                        <span style="font-weight:500; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${window.esc(proj.name)}</span>
                         <span style="flex-shrink:0; font-size:0.65rem; padding:2px 7px; border-radius:10px;
                                      background:rgba(245,158,11,0.12); color:var(--accent-yellow);
                                      border:1px solid rgba(245,158,11,0.25); white-space:nowrap; font-weight:600; text-transform:uppercase; letter-spacing:0.03em;">
