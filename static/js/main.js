@@ -213,7 +213,7 @@ window.refreshTimetableSnapshot = async function() {
                     html += `
                         <li class="period-card" data-status="${uiStatus}">
                             <span style="color: var(--text-muted); font-size: 0.9rem;">${c.time}</span>
-                            <strong style="flex:1; text-align: right; margin: 0 8px;">${c.subject}</strong>
+                            <strong style="flex:1; text-align: right; margin: 0 8px;">${window.esc(c.subject)}</strong>
                             ${badgeHTML}
                         </li>
                     `;
@@ -238,11 +238,11 @@ window.refreshAttendanceSnapshot = async function() {
             result.data.forEach(item => {
                 const color = window.attendanceColor(item.percentage);
                 html += `
-                    <div class="snapshot-item" data-subject="${item.subject}" style="text-align: center; background: var(--tint-1); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+                    <div class="snapshot-item" data-subject="${window.esc(item.subject)}" style="text-align: center; background: var(--tint-1); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
                         <div class="percentage-value" style="font-size: 1.2rem; font-weight: bold; color: ${color};">
                             ${item.percentage}%
                         </div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">${item.subject}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">${window.esc(item.subject)}</div>
                     </div>
                 `;
             });
@@ -298,7 +298,7 @@ window.refreshGoalsSnapshot = async function() {
                         <div style="width: 18px; height: 18px; border: 2px solid ${goal.completed ? 'var(--accent-teal)' : 'var(--card-border)'}; border-radius: 4px; background: ${goal.completed ? 'var(--accent-teal)' : 'transparent'}; display: flex; align-items: center; justify-content: center;">
                             ${goal.completed ? window.icon('check', { size: 12, strokeWidth: 4 }) : ''}
                         </div>
-                        ${goal.text}
+                        ${window.esc(goal.text)}
                     </li>
                 `;
             });

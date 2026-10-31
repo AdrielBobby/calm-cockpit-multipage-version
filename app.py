@@ -114,7 +114,7 @@ def index():
     # --- 6. Projects ---
     # PRD says "Only projects with status in_progress."
     projects_rows = db.execute(
-        'SELECT name, status FROM projects WHERE status = "in_progress" LIMIT 4'
+        "SELECT name, status FROM projects WHERE status = 'in_progress' LIMIT 4"
     ).fetchall()
     projects_in_progress = [{"name": r['name'], "status": r['status']} for r in projects_rows]
     
@@ -572,8 +572,8 @@ def get_timetable_override(week_key):
     db = get_db()
     rows = db.execute(
         'SELECT wo.start_time, wo.end_time, wo.subject_id, '
-        'CASE WHEN wo.subject_id IS NULL THEN "None" ELSE s.name END as subject, '
-        'CASE WHEN wo.subject_id IS NULL THEN "NONE" ELSE s.short_name END as short_name '
+        "CASE WHEN wo.subject_id IS NULL THEN 'None' ELSE s.name END as subject, "
+        "CASE WHEN wo.subject_id IS NULL THEN 'NONE' ELSE s.short_name END as short_name "
         'FROM weekly_overrides wo '
         'LEFT JOIN subjects s ON wo.subject_id = s.id '
         'WHERE wo.week_key = ? ORDER BY wo.start_time', (week_key,)
@@ -687,7 +687,7 @@ def mark_holiday():
         db.execute('INSERT INTO holidays (date) VALUES (?)', (date,))
         db.commit()
         return jsonify({"status": "success"})
-    except:
+    except sqlite3.IntegrityError:
         return jsonify({"status": "success"}) # Ignore if already exists
 
 @app.route('/api/attendance/holiday', methods=['DELETE'])
@@ -1076,6 +1076,7 @@ def update_project_status(id):
 @app.route('/api/projects/<tid:id>', methods=['DELETE'])
 def delete_project(id):
     db = get_db()
+    db.execute('DELETE FROM project_logs WHERE project_id = ?', (id,))
     db.execute('DELETE FROM projects WHERE id = ?', (id,))
     db.execute('UPDATE board_nodes SET project_id = NULL WHERE project_id = ?', (id,))
     db.commit()
@@ -1103,7 +1104,6 @@ def add_project_log(id):
 @app.route('/api/projects-data', methods=['GET'])
 def get_projects_data():
     try:
-        print("DEBUG: get_projects_data called")
         status_filter = request.args.get('status')
         db = get_db()
         query = 'SELECT * FROM projects'
@@ -1116,10 +1116,8 @@ def get_projects_data():
         
         rows = db.execute(query, params).fetchall()
         data = [dict(r) for r in rows]
-        print(f"DEBUG: Found {len(data)} projects")
         return jsonify({"status": "success", "data": data})
     except Exception as e:
-        print(f"DEBUG Error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/projects/tile-data', methods=['GET'])
