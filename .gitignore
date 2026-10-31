@@ -11,6 +11,9 @@ ENV/
 instance/
 .env
 
+# Local launcher
+start-cockpit.bat
+
 # OS
 .DS_Store
 Thumbs.db
