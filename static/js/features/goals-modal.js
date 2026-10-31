@@ -23,13 +23,13 @@ window.loadGoalsModal = async function(modalBody) {
         result.data.forEach(goal => {
             html += `
                 <div style="display: flex; align-items: center; justify-content: space-between; background: var(--tint-1); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--card-border);">
-                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="toggleGoalStatus('${goal.id}', ${!goal.completed})">
+                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="toggleGoalStatus(${window.jsArg(goal.id)}, ${!goal.completed})">
                         <div style="width: 20px; height: 20px; border: 2px solid ${goal.completed ? 'var(--accent-teal)' : 'var(--card-border)'}; border-radius: 4px; background: ${goal.completed ? 'var(--accent-teal)' : 'transparent'}; display: flex; align-items: center; justify-content: center;">
                             ${goal.completed ? window.icon('check', { size: 14, strokeWidth: 4 }) : ''}
                         </div>
                         <span style="${goal.completed ? 'color: var(--text-muted); text-decoration: line-through;' : 'font-weight: 500;'}">${window.esc(goal.text)}</span>
                     </div>
-                    <button onclick="deleteGoal('${goal.id}')" aria-label="Delete goal" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">${window.icon('x', { size: 16 })}</button>
+                    <button onclick="deleteGoal(${window.jsArg(goal.id)})" aria-label="Delete goal" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">${window.icon('x', { size: 16 })}</button>
                 </div>
             `;
         });

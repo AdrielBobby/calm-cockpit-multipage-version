@@ -22,7 +22,7 @@ window.loadFinanceModal = async function(modalBody) {
         for (const [acc, bal] of Object.entries(summaryResult.data.accounts)) {
             html += `
                 <div style="background: var(--tint-1); padding: 16px; border-radius: 12px; border: 1px solid var(--card-border);">
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">${acc}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">${window.esc(acc)}</div>
                     <div style="font-size: 1.2rem; font-weight: 600;">₹${bal}</div>
                 </div>
             `;
@@ -91,14 +91,14 @@ window.loadFinanceModal = async function(modalBody) {
             const isExpense = t.type === 'expense';
             html += `
                 <tr style="border-bottom: 1px solid var(--card-border); font-size: 0.9rem;">
-                    <td style="padding: 12px 8px;">${t.date}</td>
+                    <td style="padding: 12px 8px;">${window.esc(t.date)}</td>
                     <td style="padding: 12px 8px;">${window.esc(t.account_name)}</td>
-                    <td style="padding: 12px 8px;">${t.category || '-'}</td>
+                    <td style="padding: 12px 8px;">${window.esc(t.category || '-')}</td>
                     <td style="padding: 12px 8px; color: ${isExpense ? 'var(--accent-red)' : 'var(--accent-teal)'}; font-weight: 600;">
                         ${isExpense ? '-' : '+'}₹${t.amount}
                     </td>
                     <td style="padding: 12px 8px; text-align: right;">
-                        <button onclick="deleteTransaction('${t.id}')" aria-label="Delete transaction" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem;">${window.icon('x', { size: 16 })}</button>
+                        <button onclick="deleteTransaction(${window.jsArg(t.id)})" aria-label="Delete transaction" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem;">${window.icon('x', { size: 16 })}</button>
                     </td>
                 </tr>
             `;

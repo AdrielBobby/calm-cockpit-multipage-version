@@ -86,6 +86,11 @@ window.LABEL_COLORS = {
     Assignment: '#6366f1',
 };
 
+/* HTML-escape user text before it goes into innerHTML templates. */
+window.esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* A value as a JS argument inside an inline handler: onclick="fn(${window.jsArg(id)})". */
+window.jsArg = (v) => window.esc(JSON.stringify(v ?? null));
+
 /* Calendar events plus assignment due dates, merged for the calendar grids.
    Assignments carry kind: 'assignment' so the agenda renders them read-only
    (they're edited on the Assignments page, not through the events API). */
@@ -293,7 +298,7 @@ window.refreshGoalsSnapshot = async function() {
             let html = '<ul style="list-style: none; padding: 0;">';
             goals.forEach(goal => {
                 html += `
-                    <li onclick="toggleGoalStatus('${goal.id}', ${!goal.completed})" 
+                    <li onclick="toggleGoalStatus(${window.jsArg(goal.id)}, ${!goal.completed})" 
                         style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.95rem; cursor: pointer; ${goal.completed ? 'color: var(--text-muted); text-decoration: line-through;' : ''}">
                         <div style="width: 18px; height: 18px; border: 2px solid ${goal.completed ? 'var(--accent-teal)' : 'var(--card-border)'}; border-radius: 4px; background: ${goal.completed ? 'var(--accent-teal)' : 'transparent'}; display: flex; align-items: center; justify-content: center;">
                             ${goal.completed ? window.icon('check', { size: 12, strokeWidth: 4 }) : ''}
@@ -411,7 +416,7 @@ window.generateCalendarGrid = function(year, month, events, options) {
 
 window.generateDashboardGrid = function(year, month, events) {
     return window.generateCalendarGrid(year, month, events, {
-        onClickAttr: (dateStr) => `onclick="openCalendarAtDate('${dateStr}')"`,
+        onClickAttr: (dateStr) => `onclick="openCalendarAtDate(${window.jsArg(dateStr)})"`,
         renderOverflow: () => `<span style="font-size: 0.6rem; color: var(--text-muted); line-height: 1;">+</span>`,
     });
 };
