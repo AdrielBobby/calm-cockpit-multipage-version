@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <main class="torn-page">
+        <header class="acad-header">
+            <div>
+                <h1 class="acad-title">Torn</h1>
+                <p class="torn-ident" id="torn-ident"></p>
+            </div>
+            <p class="torn-updated" id="torn-updated" aria-live="off"></p>
+        </header>
+
+        <p class="acad-status" id="torn-status" role="status" aria-live="polite"></p>
+
+        <section class="tile torn-setup" id="torn-setup" hidden>
+            <h2>Connect your Torn account</h2>
+            <ol>
+                <li>In Torn, open <strong>Settings &rarr; API Keys</strong> and create a <strong>Custom</strong> key with
+                    <code>profile</code>, <code>bars</code>, <code>cooldowns</code>, <code>travel</code>,
+                    <code>money</code>, <code>battlestats</code>, <code>events</code> and <code>notifications</code>
+                    (or just use a <strong>Limited</strong> key).</li>
+                <li>Add <code>set TORN_API_KEY=your_key</code> to <code>start-cockpit.bat</code> above the line that starts Flask.</li>
+                <li>Restart the server and reload this page.</li>
+            </ol>
+        </section>
+
+        <div class="torn-grid" id="torn-main" hidden>
+            <section class="tile torn-status-card">
+                <div class="tile-header"><h2>Status</h2></div>
+                <div class="torn-state" id="torn-state"></div>
+                <p class="torn-state-desc" id="torn-state-desc"></p>
+                <p class="torn-state-timer" id="torn-state-timer"></p>
+                <p class="acad-hint" id="torn-last-action"></p>
+            </section>
+
+            <section class="tile torn-bars-card">
+                <div class="tile-header"><h2>Bars</h2></div>
+                <div class="torn-bars" id="torn-bars"></div>
+            </section>
+
+            <section class="tile">
+                <div class="tile-header"><h2>Cooldowns</h2></div>
+                <dl class="torn-list" id="torn-cooldowns"></dl>
+                <div id="torn-travel"></div>
+            </section>
+
+            <section class="tile">
+                <div class="tile-header"><h2>Money</h2></div>
+                <dl class="torn-list" id="torn-money"></dl>
+            </section>
+
+            <section class="tile">
+                <div class="tile-header"><h2>Battle stats</h2></div>
+                <dl class="torn-list" id="torn-battle"></dl>
+            </section>
+
+            <section class="tile torn-events-card">
+                <div class="tile-header">
+                    <h2>Events</h2>
+                    <span class="torn-badges" id="torn-badges"></span>
+                </div>
+                <ol class="torn-events" id="torn-events"></ol>
+            </section>
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/features/torn.js') }}?v=1"></script>
+{% endblock %}
