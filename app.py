@@ -2,6 +2,12 @@ import sqlite3
 import os
 import re
 import uuid
+import json
+import time
+import threading
+import urllib.error
+import urllib.parse
+import urllib.request
 import text_ids
 from flask import Flask, render_template, jsonify, request, g, send_from_directory
 from datetime import datetime, timedelta, date as date_type
@@ -200,6 +206,10 @@ def scrapbook():
 @app.route('/focus')
 def focus():
     return render_template('focus.html', active_view='focus')
+
+@app.route('/torn')
+def torn():
+    return render_template('torn.html', active_view='torn')
 
 # --- API Routes ---
 
@@ -2447,6 +2457,82 @@ def focus_put_timer(plan_id):
     db.execute('UPDATE focus_plans SET updated_at = ? WHERE id = ?', (_focus_now(), plan_id))
     db.commit()
     return jsonify({"status": "success"})
+
+
+# --- Torn Routes ---
+# Read-only proxy to the Torn API. The key stays on the server (TORN_API_KEY env var)
+# and results are cached so polling tabs stay far below Torn's 100 calls/minute limit.
+
+TORN_API = 'https://api.torn.com'
+TORN_CACHE_SECONDS = 30
+# Fetched one by one so a key without access to one of them still shows the rest.
+TORN_OPTIONAL = ('money', 'battlestats', 'notifications')
+_torn_cache = {'at': 0, 'data': None}
+_torn_lock = threading.Lock()
+
+class TornError(Exception):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+def _torn_get(path, params, key):
+    url = f"{TORN_API}{path}?{urllib.parse.urlencode({**params, 'key': key})}"
+    req = urllib.request.Request(url, headers={'User-Agent': 'calm-cockpit'})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode('utf-8'))
+    if 'error' in data:
+        err = data['error'] or {}
+        raise TornError(err.get('code'), err.get('error') or 'Torn API error')
+    return data
+
+def _torn_events(key):
+    """Newest-first events; v2 endpoint first, v1 selection as a fallback."""
+    try:
+        raw = _torn_get('/v2/user/events', {'limit': 25}, key).get('events')
+    except TornError:
+        raw = _torn_get('/user/', {'selections': 'events'}, key).get('events')
+    items = raw.values() if isinstance(raw, dict) else (raw or [])
+    events = [{'timestamp': e.get('timestamp') or 0, 'text': e.get('event') or '',
+               'seen': bool(e.get('seen', True))} for e in items]
+    events.sort(key=lambda e: e['timestamp'], reverse=True)
+    return events[:25]
+
+def _torn_fetch(key):
+    data = _torn_get('/user/', {'selections': 'profile,bars,cooldowns,travel'}, key)
+    missing = []
+    for sel in TORN_OPTIONAL:
+        try:
+            data.update(_torn_get('/user/', {'selections': sel}, key))
+        except TornError:
+            missing.append(sel)
+    try:
+        data['events'] = _torn_events(key)
+    except TornError:
+        data['events'] = None
+        missing.append('events')
+    data['missing'] = missing
+    return data
+
+@app.route('/api/torn/user', methods=['GET'])
+def torn_user():
+    key = os.environ.get('TORN_API_KEY', '').strip()
+    if not key:
+        return jsonify({"status": "error", "code": "no_key",
+                        "message": "Set TORN_API_KEY before starting the server."}), 503
+    with _torn_lock:
+        cached = _torn_cache['data']
+        if cached and time.time() - _torn_cache['at'] < TORN_CACHE_SECONDS:
+            return jsonify({"status": "success", "fetched_at": _torn_cache['at'], "stale": False, "data": cached})
+        try:
+            data = _torn_fetch(key)
+        except TornError as e:
+            return jsonify({"status": "error", "code": e.code, "message": f"Torn says: {e}"}), 502
+        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+            if cached:
+                return jsonify({"status": "success", "fetched_at": _torn_cache['at'], "stale": True, "data": cached})
+            return jsonify({"status": "error", "message": f"Could not reach Torn ({e})."}), 502
+        _torn_cache.update(at=time.time(), data=data)
+        return jsonify({"status": "success", "fetched_at": _torn_cache['at'], "stale": False, "data": data})
 
 
 def init_db_schema():

@@ -12,6 +12,7 @@ Calm Cockpit is a single-user student dashboard: an at-a-glance Overview plus de
 | **Gym** (`/gym`) | Workout heatmap, day logs with per-set reps and weights, presets and automatic personal records. |
 | **Scrapbook** (`/scrapbook`) | Boards of linked nodes, each with a canvas of notes, images and pins joined by strings. Image uploads are stored on disk. |
 | **Focus** (`/focus`) | Paste a study plan, turn it into Pomodoro sessions and run the timer. |
+| **Torn** (`/torn`) | Live view of your Torn account (status, bars, cooldowns, travel, money, battle stats, events) via the Torn API. Polls every 30s; timers tick locally. Needs `TORN_API_KEY`. |
 
 Other behaviour worth knowing:
 - **Close attendance / migrate semester:** from the attendance modal you can close the semester's attendance. While closed, marking is blocked and the timetable tiles are empty. "Migrate to next sem" wipes the timetable, subjects, holidays and attendance and seeds the next semester's subjects.
@@ -41,6 +42,7 @@ There is no separate init step. On start-up the app creates any missing tables, 
 
 ### Environment variables
 - `COCKPIT_DB`: path to use instead of `instance/cockpit.db`.
+- `TORN_API_KEY`: your Torn API key for the Torn page. Use a Custom key with `profile`, `bars`, `cooldowns`, `travel`, `money`, `battlestats`, `events` and `notifications`, or a Limited key. The key stays on the server; Torn is called at most once every 30 seconds.
 
 ### Old databases with numeric ids
 The app refuses to start if it finds a database that still uses integer ids (the message names the tables). Back up the file, then run:
