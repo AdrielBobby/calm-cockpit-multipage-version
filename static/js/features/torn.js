@@ -12,7 +12,9 @@
         ['life', 'Life', 'blue'],
     ];
 
-    const state = { data: null, fetchedAt: 0, stale: false, pollTimer: null };
+    const LOG_CAT_KEY = 'torn.logCat';
+    const state = { data: null, fetchedAt: 0, stale: false, pollTimer: null, logCat: '', logLoaded: false, polls: 0, upkeep: null };
+    try { state.logCat = localStorage.getItem(LOG_CAT_KEY) || ''; } catch (e) { /* storage unavailable */ }
 
     async function api(url) {
         const resp = await fetch(url);
@@ -21,6 +23,7 @@
         if (!resp.ok || json.status === 'error') {
             const err = new Error(json.message || 'Request failed (' + resp.status + ')');
             err.code = json.code;
+            err.body = json;
             throw err;
         }
         return json;
@@ -59,7 +62,7 @@
     // Torn event text is HTML with its own links; keep only the words.
     const plain = (html) => new DOMParser().parseFromString(String(html || ''), 'text/html').body.textContent;
 
-    const rows = (pairs) => pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+    const rows = (pairs) => pairs.map(([k, v, cls]) => `<dt>${esc(k)}</dt><dd${cls ? ` class="${cls}"` : ''}>${esc(v)}</dd>`).join('');
     const noAccess = (sel) => `<p class="acad-hint">Your key can't read <code>${esc(sel)}</code>. Add it to the key in Torn to see this.</p>`;
 
     /* ── Bars: regen locally from the tick fields Torn sends ──── */
@@ -151,6 +154,144 @@
             </li>`).join('');
     }
 
+    function renderCompany(d) {
+        const c = d.company;
+        if (!c) {
+            $('torn-company').innerHTML = d.job && d.job.job ? rows([['Job', d.job.job + (d.job.position ? ' · ' + d.job.position : '')]])
+                : (d.missing.includes('company') ? noAccess('company') : '<p class="acad-hint">No job right now.</p>');
+            return;
+        }
+        const jp = (d.jobpoints && d.jobpoints.companies && d.jobpoints.companies[c.type]) || null;
+        const pairs = [['Company', c.name || '?'], ['Position', c.position || '?']];
+        if (jp) pairs.push(['Job points', num(jp.jobpoints)]);
+        if (c.effectiveness != null) pairs.push(['Effectiveness', num(c.effectiveness)]);
+        if (c.days_in_company != null) pairs.push(['Days in company', num(c.days_in_company)]);
+        if (c.rating != null) pairs.push(['Rating', c.rating + ' / 10']);
+        if (c.capacity) pairs.push(['Employees', num(c.hired) + ' / ' + num(c.capacity)]);
+        if (c.daily_income != null) pairs.push(['Daily income', money(c.daily_income)]);
+        if (c.weekly_income != null) pairs.push(['Weekly income', money(c.weekly_income)]);
+        $('torn-company').innerHTML = rows(pairs);
+    }
+
+    /* Torn's API has no "upkeep owed" figure, so it is estimated from the last
+       payment in the Upkeep log (Full Access keys only) and the daily rate. */
+    const UPKEEP_LOG_CAT = 139;
+    const UPKEEP_EVERY_POLLS = 10; // about every 5 minutes
+
+    async function loadUpkeep() {
+        try {
+            const json = await api('/api/torn/log?cat=' + UPKEEP_LOG_CAT);
+            fillCategories(json.categories);
+            const last = json.entries[0];
+            state.upkeep = last ? { lastPaid: last.timestamp, amount: Object.entries(last.data)
+                .filter(([k, v]) => typeof v === 'number' && MONEY_KEYS.test(k)).map(([, v]) => v)[0] } : { lastPaid: 0 };
+        } catch (e) {
+            state.upkeep = { error: e.code === 16 ? 'nokey' : 'failed' };
+        }
+        if (state.data) renderProperty(state.data);
+    }
+
+    function upkeepRows(daily) {
+        const u = state.upkeep;
+        if (!u) return [['Upkeep due', 'Checking…']];
+        if (u.error === 'nokey') return [['Upkeep due', 'Needs a Full Access key']];
+        if (u.error) return [['Upkeep due', 'Unavailable']];
+        if (!u.lastPaid) return [['Upkeep due', 'No payments logged']];
+        const days = Math.floor((tornNow() - u.lastPaid) / 86400);
+        return [
+            ['Upkeep due', days > 0 ? `≈ ${money(days * daily)} (${days}d)` : 'Paid up', days >= 3 ? 'is-warn' : ''],
+            ['Last paid', ago(u.lastPaid) + (u.amount ? ' · ' + money(u.amount) : '')],
+        ];
+    }
+
+    function renderProperty(d) {
+        const p = d.property;
+        if (!p) { $('torn-property').innerHTML = noAccess('property'); return; }
+        const upkeep = p.upkeep || {};
+        const daily = Number(upkeep.property || 0) + Number(upkeep.staff || 0);
+        const pairs = [['Property', (p.property && p.property.name) || '?']].concat(upkeepRows(daily));
+        pairs.push(['Upkeep per day', money(daily) + (upkeep.staff ? ` (${money(upkeep.staff)} staff)` : '')]);
+        if (p.status === 'rented') {
+            const left = p.rental_period_remaining;
+            pairs.push(['Rent days left', left != null ? `${num(left)} of ${num(p.rental_period)}` : '?', left <= 3 ? 'is-warn' : '']);
+            if (p.cost_per_day) pairs.push(['Rent per day', money(p.cost_per_day)]);
+            if (p.rented_by) pairs.push(['Rented by', p.rented_by.name]);
+            if (p.owner) pairs.push(['Owner', p.owner.name]);
+        } else if (p.status) {
+            pairs.push(['Status', p.status[0].toUpperCase() + p.status.slice(1)]);
+        }
+        if (p.happy) pairs.push(['Max happy', num(p.happy)]);
+        $('torn-property').innerHTML = rows(pairs);
+    }
+
+    function renderMessages(d) {
+        if (d.messages === null) { $('torn-messages').innerHTML = `<li>${noAccess('messages')}</li>`; return; }
+        if (!d.messages.length) { $('torn-messages').innerHTML = '<li class="acad-hint">No messages.</li>'; return; }
+        $('torn-messages').innerHTML = d.messages.map((m) => `
+            <li class="torn-event${m.read ? '' : ' is-new'}">
+                <span class="torn-event-time">${esc(ago(m.timestamp))}</span>
+                <span><strong>${esc(m.title || '(no subject)')}</strong>
+                    <span class="torn-meta">${esc(m.from)}${m.type ? ' · ' + esc(m.type) : ''}</span></span>
+            </li>`).join('');
+    }
+
+    /* ── Log: fetched per category on demand ──────────────────── */
+    const MONEY_KEYS = /cost|money|price|value|worth|amount|total|fee|withdrawn|deposited/;
+
+    function logDetail(data, names) {
+        const itemName = (id) => names[String(id)] || 'Item #' + id;
+        return Object.entries(data).map(([k, v]) => {
+            const label = k.replace(/_/g, ' ');
+            if (k === 'item') return itemName(v);
+            if (k === 'items') {
+                const list = Array.isArray(v) ? v.map((i) => [i.id, i.qty || i.quantity || 1])
+                    : Object.entries(v || {}).map(([id, q]) => [id, typeof q === 'number' ? q : 1]);
+                return list.map(([id, q]) => `${itemName(id)} ×${num(q)}`).join(', ');
+            }
+            if (v === null || typeof v === 'object') return null;
+            if (typeof v === 'number') return `${label}: ${MONEY_KEYS.test(k) ? money(v) : num(v)}`;
+            return `${label}: ${plain(v)}`;
+        }).filter(Boolean).join(' · ');
+    }
+
+    function fillCategories(cats) {
+        const sel = $('torn-log-cat');
+        if (!cats || !cats.length || sel.options.length > 1) return;
+        sel.insertAdjacentHTML('beforeend', cats.slice().sort((a, b) => a.title.localeCompare(b.title))
+            .map((c) => `<option value="${esc(c.id)}">${esc(c.title)}</option>`).join(''));
+        sel.value = state.logCat;
+    }
+
+    async function loadLog() {
+        const cat = state.logCat;
+        const list = $('torn-log');
+        list.innerHTML = '<li class="acad-hint">Loading…</li>';
+        try {
+            const json = await api('/api/torn/log' + (cat ? '?cat=' + encodeURIComponent(cat) : ''));
+            fillCategories(json.categories);
+            if (cat !== state.logCat) return; // filter changed while loading
+            list.innerHTML = json.entries.length ? json.entries.map((e) => {
+                const detail = logDetail(e.data, json.item_names || {});
+                return `<li class="torn-event">
+                    <span class="torn-event-time">${esc(ago(e.timestamp))}</span>
+                    <span><strong>${esc(e.title)}</strong>${detail ? `<span class="torn-meta">${esc(detail)}</span>` : ''}</span>
+                </li>`;
+            }).join('') : '<li class="acad-hint">Nothing logged in this category.</li>';
+        } catch (e) {
+            fillCategories(e.body && e.body.categories);
+            list.innerHTML = e.code === 16
+                ? '<li class="acad-hint">The log needs a <strong>Full Access</strong> API key. Create one in Torn under Settings &rarr; API Keys and put it in <code>TORN_API_KEY</code>.</li>'
+                : `<li class="acad-hint">${esc(e.message)}</li>`;
+        }
+    }
+
+    $('torn-log-cat').addEventListener('change', () => {
+        state.logCat = $('torn-log-cat').value;
+        try { localStorage.setItem(LOG_CAT_KEY, state.logCat); } catch (e) { /* storage unavailable */ }
+        loadLog();
+    });
+    $('torn-log-refresh').addEventListener('click', loadLog);
+
     function renderLive() {
         const d = state.data;
         if (!d) return;
@@ -167,6 +308,9 @@
         renderMoney(d);
         renderBattle(d);
         renderEvents(d);
+        renderCompany(d);
+        renderProperty(d);
+        renderMessages(d);
         renderLive();
     }
 
@@ -182,6 +326,11 @@
             $('torn-main').hidden = false;
             setStatus(json.stale ? "Can't reach Torn right now; showing the last data." : '', json.stale);
             renderAll();
+            if (!state.logLoaded) {
+                state.logLoaded = true;
+                loadLog();
+            }
+            if (state.polls++ % UPKEEP_EVERY_POLLS === 0) loadUpkeep();
         } catch (e) {
             if (e.code === 'no_key') {
                 $('torn-setup').hidden = false;

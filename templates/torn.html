@@ -17,15 +17,16 @@
             <ol>
                 <li>In Torn, open <strong>Settings &rarr; API Keys</strong> and create a <strong>Custom</strong> key with
                     <code>profile</code>, <code>bars</code>, <code>cooldowns</code>, <code>travel</code>,
-                    <code>money</code>, <code>battlestats</code>, <code>events</code> and <code>notifications</code>
-                    (or just use a <strong>Limited</strong> key).</li>
+                    <code>money</code>, <code>battlestats</code>, <code>events</code>, <code>notifications</code>,
+                    <code>jobpoints</code>, <code>messages</code>, <code>property</code> and company <code>profile</code>/<code>employees</code>
+                    (or just use a <strong>Limited</strong> key). The categorised log needs a <strong>Full Access</strong> key.</li>
                 <li>Add <code>set TORN_API_KEY=your_key</code> to <code>start-cockpit.bat</code> above the line that starts Flask.</li>
                 <li>Restart the server and reload this page.</li>
             </ol>
         </section>
 
         <div class="torn-grid" id="torn-main" hidden>
-            <section class="tile torn-status-card">
+            <section class="tile torn-status-card" data-area="status">
                 <div class="tile-header"><h2>Status</h2></div>
                 <div class="torn-state" id="torn-state"></div>
                 <p class="torn-state-desc" id="torn-state-desc"></p>
@@ -33,38 +34,64 @@
                 <p class="acad-hint" id="torn-last-action"></p>
             </section>
 
-            <section class="tile torn-bars-card">
+            <section class="tile torn-bars-card" data-area="bars">
                 <div class="tile-header"><h2>Bars</h2></div>
                 <div class="torn-bars" id="torn-bars"></div>
             </section>
 
-            <section class="tile">
+            <section class="tile" data-area="cool">
                 <div class="tile-header"><h2>Cooldowns</h2></div>
                 <dl class="torn-list" id="torn-cooldowns"></dl>
                 <div id="torn-travel"></div>
             </section>
 
-            <section class="tile">
+            <section class="tile" data-area="money">
                 <div class="tile-header"><h2>Money</h2></div>
                 <dl class="torn-list" id="torn-money"></dl>
             </section>
 
-            <section class="tile">
+            <section class="tile" data-area="battle">
                 <div class="tile-header"><h2>Battle stats</h2></div>
                 <dl class="torn-list" id="torn-battle"></dl>
             </section>
 
-            <section class="tile torn-events-card">
+            <section class="tile" data-area="company">
+                <div class="tile-header"><h2>Company</h2></div>
+                <dl class="torn-list" id="torn-company"></dl>
+            </section>
+
+            <section class="tile" data-area="property">
+                <div class="tile-header"><h2>Property</h2></div>
+                <dl class="torn-list" id="torn-property"></dl>
+            </section>
+
+            <section class="tile torn-events-card" data-area="events">
                 <div class="tile-header">
                     <h2>Events</h2>
                     <span class="torn-badges" id="torn-badges"></span>
                 </div>
                 <ol class="torn-events" id="torn-events"></ol>
             </section>
+
+            <section class="tile torn-messages-card" data-area="messages">
+                <div class="tile-header"><h2>Messages</h2></div>
+                <ol class="torn-events" id="torn-messages"></ol>
+            </section>
+
+            <section class="tile torn-log-card" data-area="log">
+                <div class="tile-header">
+                    <h2>Log</h2>
+                    <div class="torn-log-controls">
+                        <select class="acad-input" id="torn-log-cat" aria-label="Log category"><option value="">All categories</option></select>
+                        <button type="button" class="btn-action" id="torn-log-refresh" aria-label="Refresh log" title="Refresh log">&#8635;</button>
+                    </div>
+                </div>
+                <ol class="torn-events" id="torn-log"></ol>
+            </section>
         </div>
     </main>
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/features/torn.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/features/torn.js') }}?v=3"></script>
 {% endblock %}

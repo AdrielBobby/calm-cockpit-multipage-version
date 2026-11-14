@@ -2466,9 +2466,16 @@ def focus_put_timer(plan_id):
 TORN_API = 'https://api.torn.com'
 TORN_CACHE_SECONDS = 30
 # Fetched one by one so a key without access to one of them still shows the rest.
-TORN_OPTIONAL = ('money', 'battlestats', 'notifications')
+TORN_OPTIONAL = ('money', 'battlestats', 'notifications', 'jobpoints', 'messages')
+TORN_MESSAGES_SHOWN = 20
+TORN_LOG_CACHE_SECONDS = 60
 _torn_cache = {'at': 0, 'data': None}
 _torn_lock = threading.Lock()
+# The log is fetched on demand per category, apart from the 30s account poll.
+_torn_log_cache = {}
+_torn_log_categories = []
+_torn_item_names = {}
+_torn_log_lock = threading.Lock()
 
 class TornError(Exception):
     def __init__(self, code, message):
@@ -2497,6 +2504,27 @@ def _torn_events(key):
     events.sort(key=lambda e: e['timestamp'], reverse=True)
     return events[:25]
 
+def _torn_messages(raw):
+    """Newest-first inbox headers. Torn's API gives titles and senders, not message bodies."""
+    items = raw.items() if isinstance(raw, dict) else []
+    messages = [{'id': mid, 'timestamp': m.get('timestamp') or 0, 'from': m.get('name') or '',
+                 'type': m.get('type') or '', 'title': m.get('title') or '',
+                 'read': bool(m.get('read', True))} for mid, m in items]
+    messages.sort(key=lambda m: m['timestamp'], reverse=True)
+    return messages[:TORN_MESSAGES_SHOWN]
+
+def _torn_company(key, player_id):
+    c = _torn_get('/company/', {'selections': 'profile,employees'}, key)
+    profile = c.get('company') or {}
+    me = (c.get('company_employees') or {}).get(str(player_id)) or {}
+    return {
+        'name': profile.get('name'), 'type': profile.get('company_type'), 'rating': profile.get('rating'),
+        'hired': profile.get('employees_hired'), 'capacity': profile.get('employees_capacity'),
+        'daily_income': profile.get('daily_income'), 'weekly_income': profile.get('weekly_income'),
+        'position': me.get('position'), 'days_in_company': me.get('days_in_company'),
+        'effectiveness': (me.get('effectiveness') or {}).get('total'),
+    }
+
 def _torn_fetch(key):
     data = _torn_get('/user/', {'selections': 'profile,bars,cooldowns,travel'}, key)
     missing = []
@@ -2505,13 +2533,63 @@ def _torn_fetch(key):
             data.update(_torn_get('/user/', {'selections': sel}, key))
         except TornError:
             missing.append(sel)
-    try:
-        data['events'] = _torn_events(key)
-    except TornError:
-        data['events'] = None
-        missing.append('events')
+    data['messages'] = None if 'messages' in missing else _torn_messages(data.get('messages'))
+    extras = {
+        'events': lambda: _torn_events(key),
+        'property': lambda: _torn_get('/v2/user/property', {}, key).get('property'),
+        # Fails when the player has no company job (city job or unemployed).
+        'company': lambda: _torn_company(key, data.get('player_id')),
+    }
+    for name, fetch in extras.items():
+        try:
+            data[name] = fetch()
+        except TornError:
+            data[name] = None
+            missing.append(name)
     data['missing'] = missing
     return data
+
+def _torn_log_items(entries, key):
+    """Item names for the ids in log data, looked up once and kept for the server's lifetime."""
+    ids = set()
+    for e in entries:
+        d = e['data']
+        if str(d.get('item', '')).isdigit():
+            ids.add(str(d['item']))
+        items = d.get('items')
+        if isinstance(items, list):
+            ids.update(str(i.get('id')) for i in items if isinstance(i, dict) and str(i.get('id', '')).isdigit())
+        elif isinstance(items, dict):
+            ids.update(k for k in items if k.isdigit())
+    unknown = sorted(ids - _torn_item_names.keys())
+    for start in range(0, len(unknown), 50):
+        chunk = unknown[start:start + 50]
+        try:
+            found = _torn_get(f"/torn/{','.join(chunk)}", {'selections': 'items'}, key).get('items') or {}
+        except (TornError, urllib.error.URLError, TimeoutError, ValueError):
+            break  # names are a nicety; the log still shows ids
+        _torn_item_names.update({k: v.get('name') for k, v in found.items()})
+    return {i: _torn_item_names[i] for i in ids if _torn_item_names.get(i)}
+
+def _torn_log(key, cat):
+    """Newest-first log entries (Full Access keys only); v2 endpoint first, v1 selection as a fallback."""
+    params = {'limit': 100, **({'cat': cat} if cat else {})}
+    try:
+        raw = _torn_get('/v2/user/log', params, key).get('log')
+    except TornError as e:
+        if e.code == 16:  # access level too low; v1 would say the same
+            raise
+        raw = _torn_get('/user/', {**params, 'selections': 'log'}, key).get('log')
+    items = raw.values() if isinstance(raw, dict) else (raw or [])
+    entries = []
+    for e in items:
+        details = e.get('details') or {}
+        entries.append({'timestamp': e.get('timestamp') or 0,
+                        'title': details.get('title') or e.get('title') or '',
+                        'category': details.get('category') or e.get('category') or '',
+                        'data': e.get('data') if isinstance(e.get('data'), dict) else {}})
+    entries.sort(key=lambda e: e['timestamp'], reverse=True)
+    return entries
 
 @app.route('/api/torn/user', methods=['GET'])
 def torn_user():
@@ -2533,6 +2611,36 @@ def torn_user():
             return jsonify({"status": "error", "message": f"Could not reach Torn ({e})."}), 502
         _torn_cache.update(at=time.time(), data=data)
         return jsonify({"status": "success", "fetched_at": _torn_cache['at'], "stale": False, "data": data})
+
+@app.route('/api/torn/log', methods=['GET'])
+def torn_log():
+    key = os.environ.get('TORN_API_KEY', '').strip()
+    if not key:
+        return jsonify({"status": "error", "code": "no_key",
+                        "message": "Set TORN_API_KEY before starting the server."}), 503
+    cat = request.args.get('cat', '').strip()
+    if cat and not cat.isdigit():
+        return jsonify({"status": "error", "message": "Invalid log category."}), 400
+    with _torn_log_lock:
+        if not _torn_log_categories:
+            try:
+                _torn_log_categories[:] = _torn_get('/v2/torn/logcategories', {}, key).get('logcategories') or []
+            except (TornError, urllib.error.URLError, TimeoutError, ValueError):
+                pass  # the filter falls back to "All" until the next request
+        cached = _torn_log_cache.get(cat)
+        if not cached or time.time() - cached['at'] >= TORN_LOG_CACHE_SECONDS:
+            try:
+                entries = _torn_log(key, cat)
+            except TornError as e:
+                return jsonify({"status": "error", "code": e.code, "message": f"Torn says: {e}",
+                                "categories": _torn_log_categories}), 502
+            except (urllib.error.URLError, TimeoutError, ValueError) as e:
+                return jsonify({"status": "error", "message": f"Could not reach Torn ({e}).",
+                                "categories": _torn_log_categories}), 502
+            cached = _torn_log_cache[cat] = {'at': time.time(), 'entries': entries,
+                                             'item_names': _torn_log_items(entries, key)}
+        return jsonify({"status": "success", "fetched_at": cached['at'], "categories": _torn_log_categories,
+                        "entries": cached['entries'], "item_names": cached['item_names']})
 
 
 def init_db_schema():
