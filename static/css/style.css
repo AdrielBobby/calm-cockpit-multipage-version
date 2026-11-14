@@ -2670,9 +2670,41 @@ body.focus-immersive { overflow: hidden; }
 .torn-setup ol { padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; }
 .torn-page code { background: var(--tint-2); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
 
-.torn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-.torn-bars-card { grid-row: span 2; }
-.torn-events-card { grid-column: 1 / -1; }
+/* Top row is the quick glance (status, money, cooldowns) with bars alongside; job and home sit below. */
+.torn-grid { display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+        "status   bars     money    cool"
+        "company  bars     battle   property"
+        "events   events   events   events"
+        "messages messages messages messages"
+        "log      log      log      log"; }
+.torn-grid > [data-area="status"] { grid-area: status; }
+.torn-grid > [data-area="bars"] { grid-area: bars; }
+.torn-grid > [data-area="cool"] { grid-area: cool; }
+.torn-grid > [data-area="money"] { grid-area: money; }
+.torn-grid > [data-area="battle"] { grid-area: battle; }
+.torn-grid > [data-area="company"] { grid-area: company; }
+.torn-grid > [data-area="property"] { grid-area: property; }
+.torn-grid > [data-area="events"] { grid-area: events; }
+.torn-grid > [data-area="messages"] { grid-area: messages; }
+.torn-grid > [data-area="log"] { grid-area: log; }
+/* The quick-glance row runs tighter than the rest. */
+.torn-grid > :is([data-area="status"], [data-area="money"], [data-area="cool"]) { padding: 14px 20px; }
+.torn-grid > :is([data-area="status"], [data-area="money"], [data-area="cool"]) .tile-header { margin-bottom: 8px; }
+.torn-grid > :is([data-area="money"], [data-area="cool"]) .torn-list { gap: 4px 16px; }
+.torn-grid > [data-area="status"] .torn-state { font-size: 1.5rem; }
+.torn-grid > [data-area="status"] .torn-state-desc { margin-top: 2px; }
+@media (max-width: 1279px) {
+    .torn-grid { grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-areas:
+            "status   bars"
+            "cool     bars"
+            "money    battle"
+            "company  property"
+            "events   events"
+            "messages messages"
+            "log      log"; }
+}
 
 .torn-state { font-size: 1.8rem; font-weight: 700; color: var(--accent-teal); line-height: 1.1; }
 .torn-state[data-color="red"] { color: var(--accent-red); }
@@ -2707,10 +2739,16 @@ body.focus-immersive { overflow: hidden; }
 .torn-event:last-child { border-bottom: 0; }
 .torn-event.is-new { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .torn-event-time { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
+.torn-meta { display: block; color: var(--text-muted); font-size: 0.8rem; margin-top: 2px; }
+.torn-list dd.is-warn { color: var(--accent-red); }
+.torn-log-controls { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.torn-log-controls select { max-width: 240px; }
 
 @media (max-width: 767px) {
     .torn-page { padding: 12px; }
-    .torn-grid { gap: 12px; grid-template-columns: minmax(0, 1fr); }
-    .torn-bars-card { grid-row: auto; }
+    .torn-grid { gap: 12px; grid-template-columns: minmax(0, 1fr); grid-template-areas: none; }
+    .torn-grid > [data-area] { grid-area: auto; }
     .torn-event { grid-template-columns: 1fr; gap: 2px; }
+    .torn-log-controls { width: 100%; }
+    .torn-log-controls select { flex: 1; max-width: none; }
 }
