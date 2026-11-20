@@ -1331,6 +1331,7 @@ def get_calendar_events():
 def clear_attendance():
     db = get_db()
     db.execute('DELETE FROM attendance')
+    db.execute('DELETE FROM override_attendance')
     db.execute('DELETE FROM holidays')
     db.commit()
     return jsonify({"status": "success"})
